@@ -1,10 +1,13 @@
 package server
 
 import (
+	"bytes"
 	"encoding/json"
 	"io"
+	"maps"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 )
 
@@ -14,6 +17,10 @@ type StubStore struct {
 
 func (s *StubStore) GetItems() Items {
 	return s.items
+}
+
+func (s *StubStore) InsertItem(payload Items) {
+	s.items = maps.Clone(payload)
 }
 
 func TestGETStore(t *testing.T) {
@@ -35,14 +42,19 @@ func TestGETStore(t *testing.T) {
 }
 
 func TestPOSTStore(t *testing.T) {
+	payload := Items{"1": "item_one"}
+	jsonBytes, _ := json.Marshal(payload)
+
 	store := StubStore{}
 	server := NewServer(&store)
-	request := httptest.NewRequest(http.MethodPost, "/items", nil)
+	request := httptest.NewRequest(http.MethodPost, "/items", bytes.NewReader(jsonBytes))
+	request.Header.Set("content-type", jsonContentType)
 	response := httptest.NewRecorder()
 
 	server.ServeHTTP(response, request)
 
 	assertStatus(t, response.Code, http.StatusAccepted)
+	assertStore(t, store.items, payload)
 }
 
 func getItemsFromResponse(t testing.TB, body io.Reader) (items Items) {
@@ -53,6 +65,13 @@ func getItemsFromResponse(t testing.TB, body io.Reader) (items Items) {
 	}
 
 	return
+}
+
+func assertStore(t testing.TB, got, want Items) {
+	t.Helper()
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got: %v, want: %v", got, want)
+	}
 }
 
 func assertStatus(t testing.TB, got, want int) {
@@ -69,4 +88,9 @@ func assetContentType(t testing.TB, response *httptest.ResponseRecorder, want st
 	}
 }
 
-func assertItems(t testing.TB, got, want Items) {}
+func assertItems(t testing.TB, got, want Items) {
+	t.Helper()
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got: %v, want: %v", got, want)
+	}
+}

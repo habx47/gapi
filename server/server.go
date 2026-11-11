@@ -11,6 +11,7 @@ type Items map[string]string
 
 type Store interface {
 	GetItems() Items
+	InsertItem(payload Items)
 }
 
 type Server struct {
@@ -23,7 +24,7 @@ func (s *Server) storeHandler(w http.ResponseWriter, r *http.Request) {
 	case http.MethodGet:
 		s.listItems(w)
 	case http.MethodPost:
-		s.createItem(w)
+		s.createItem(w, r)
 	}
 }
 
@@ -32,8 +33,20 @@ func (s *Server) listItems(w http.ResponseWriter) {
 	json.NewEncoder(w).Encode(s.store.GetItems())
 }
 
-func (s *Server) createItem(w http.ResponseWriter) {
+func (s *Server) createItem(w http.ResponseWriter, r *http.Request) {
+	if r.Header.Get("content-type") != jsonContentType {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	var payload Items
+	err := json.NewDecoder(r.Body).Decode(&payload)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
 	w.WriteHeader(http.StatusAccepted)
+	s.store.InsertItem(payload)
 }
 
 func NewServer(store Store) *Server {
