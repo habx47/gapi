@@ -12,7 +12,7 @@ type StubStore struct {
 	items Items
 }
 
-func (s *StubStore) ListItems() Items {
+func (s *StubStore) GetItems() Items {
 	return s.items
 }
 

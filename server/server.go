@@ -10,7 +10,7 @@ const jsonContentType = "application/json"
 type Items map[string]string
 
 type Store interface {
-	ListItems() Items
+	GetItems() Items
 }
 
 type Server struct {
@@ -29,7 +29,7 @@ func (s *Server) storeHandler(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) listItems(w http.ResponseWriter) {
 	w.Header().Set("content-type", jsonContentType)
-	json.NewEncoder(w).Encode(s.store.ListItems())
+	json.NewEncoder(w).Encode(s.store.GetItems())
 }
 
 func (s *Server) createItem(w http.ResponseWriter) {
