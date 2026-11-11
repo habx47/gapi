@@ -22,6 +22,17 @@ func TestGETStore(t *testing.T) {
 	assertStatus(t, response.Code, http.StatusOK)
 }
 
+func TestPOSTStore(t *testing.T) {
+	store := StubStore{}
+	server := NewServer(&store)
+	request := httptest.NewRequest(http.MethodPost, "/items", nil)
+	response := httptest.NewRecorder()
+
+	server.ServeHTTP(response, request)
+
+	assertStatus(t, response.Code, http.StatusAccepted)
+}
+
 func assertStatus(t testing.TB, got, want int) {
 	t.Helper()
 	if got != want {
