@@ -37,24 +37,38 @@ func TestGETStore(t *testing.T) {
 	got := getItemsFromResponse(t, response.Body)
 
 	assertStatus(t, response.Code, http.StatusOK)
-	assertItems(t, got, items)
+	assertStoreState(t, got, items)
 	assetContentType(t, response, jsonContentType)
 }
 
 func TestPOSTStore(t *testing.T) {
-	payload := Items{"1": "item_one"}
-	jsonBytes, _ := json.Marshal(payload)
+	t.Run("content-type: application/json", func(t *testing.T) {
+		payload := Items{"1": "item_one"}
+		jsonBytes, _ := json.Marshal(payload)
 
-	store := StubStore{}
-	server := NewServer(&store)
-	request := httptest.NewRequest(http.MethodPost, "/items", bytes.NewReader(jsonBytes))
-	request.Header.Set("content-type", jsonContentType)
-	response := httptest.NewRecorder()
+		store := StubStore{}
+		server := NewServer(&store)
+		request := httptest.NewRequest(http.MethodPost, "/items", bytes.NewReader(jsonBytes))
+		request.Header.Set("content-type", jsonContentType)
+		response := httptest.NewRecorder()
 
-	server.ServeHTTP(response, request)
+		server.ServeHTTP(response, request)
 
-	assertStatus(t, response.Code, http.StatusAccepted)
-	assertStore(t, store.items, payload)
+		assertStatus(t, response.Code, http.StatusAccepted)
+		assertStoreState(t, store.items, payload)
+	})
+
+	t.Run("content-type: text/plain", func(t *testing.T) {
+		store := StubStore{}
+		server := NewServer(&store)
+		request := httptest.NewRequest(http.MethodPost, "/items", nil)
+		request.Header.Set("content-type", "text/plain")
+		response := httptest.NewRecorder()
+
+		server.ServeHTTP(response, request)
+
+		assertStatus(t, response.Code, http.StatusBadRequest)
+	})
 }
 
 func getItemsFromResponse(t testing.TB, body io.Reader) (items Items) {
@@ -65,13 +79,6 @@ func getItemsFromResponse(t testing.TB, body io.Reader) (items Items) {
 	}
 
 	return
-}
-
-func assertStore(t testing.TB, got, want Items) {
-	t.Helper()
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("got: %v, want: %v", got, want)
-	}
 }
 
 func assertStatus(t testing.TB, got, want int) {
@@ -88,7 +95,7 @@ func assetContentType(t testing.TB, response *httptest.ResponseRecorder, want st
 	}
 }
 
-func assertItems(t testing.TB, got, want Items) {
+func assertStoreState(t testing.TB, got, want Items) {
 	t.Helper()
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("got: %v, want: %v", got, want)
