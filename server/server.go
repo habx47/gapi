@@ -1,9 +1,16 @@
 package server
 
-import "net/http"
+import (
+	"encoding/json"
+	"net/http"
+)
+
+const jsonContentType = "application/json"
+
+type Items map[string]string
 
 type Store interface {
-	ListItems()
+	ListItems() Items
 }
 
 type Server struct {
@@ -21,7 +28,8 @@ func (s *Server) storeHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) listItems(w http.ResponseWriter) {
-	w.WriteHeader(http.StatusOK)
+	w.Header().Set("content-type", jsonContentType)
+	json.NewEncoder(w).Encode(s.store.ListItems())
 }
 
 func (s *Server) createItem(w http.ResponseWriter) {
