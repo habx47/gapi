@@ -28,6 +28,11 @@ func (s *StubStore) getItem(id string) Item {
 	return value
 }
 
+func (s *StubStore) updateItem(key string, value Item) bool {
+	s.items[key] = value
+	return true
+}
+
 func TestGETStore(t *testing.T) {
 	items := Items{"1": "item_one"}
 	store := StubStore{
@@ -93,6 +98,23 @@ func TestPOSTStore(t *testing.T) {
 
 		assertStatus(t, response.Code, http.StatusBadRequest)
 	})
+}
+
+func TestPUTItem(t *testing.T) {
+	payload := Items{"value": "item_one_updated"}
+	jsonBytes, _ := json.Marshal(payload)
+
+	store := StubStore{items: Items{"1": "item_one"}}
+	updatedStore := StubStore{items: Items{"1": "item_one_updated"}}
+	server := NewServer(&store)
+	request := httptest.NewRequest(http.MethodPut, "/items/1", bytes.NewReader(jsonBytes))
+	request.Header.Set("content-type", jsonContentType)
+	response := httptest.NewRecorder()
+
+	server.ServeHTTP(response, request)
+
+	assertStatus(t, response.Code, http.StatusNoContent)
+	assertStoreState(t, store.items, updatedStore.items)
 }
 
 func getItemsFromResponse(t testing.TB, body io.Reader) (items Items) {

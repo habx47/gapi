@@ -15,6 +15,7 @@ type Store interface {
 	getItems() Items
 	insertItems(payload Items)
 	getItem(key string) Item
+	updateItem(key string, value Item) bool
 }
 
 type Server struct {
@@ -52,6 +53,30 @@ func (s *Server) getItem(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(item)
 }
 
+func (s *Server) updateItem(w http.ResponseWriter, r *http.Request) {
+	if r.Header.Get("content-type") != jsonContentType {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	key := strings.TrimPrefix(r.URL.Path, "/items/")
+	var payload map[string]Item
+	err := json.NewDecoder(r.Body).Decode(&payload)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	value, ok := payload["value"]
+	if !ok {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	_ = s.store.updateItem(key, value)
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func NewServer(store Store) *Server {
 	s := new(Server)
 	s.store = store
@@ -60,6 +85,7 @@ func NewServer(store Store) *Server {
 	router.Handle("GET /items", http.HandlerFunc(s.listItems))
 	router.Handle("GET /items/{id}", http.HandlerFunc(s.getItem))
 	router.Handle("POST /items", http.HandlerFunc(s.createItem))
+	router.Handle("PUT /items/{id}", http.HandlerFunc(s.updateItem))
 
 	s.Handler = router
 
