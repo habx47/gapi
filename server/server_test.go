@@ -15,12 +15,17 @@ type StubStore struct {
 	items Items
 }
 
-func (s *StubStore) GetItems() Items {
+func (s *StubStore) getItems() Items {
 	return s.items
 }
 
-func (s *StubStore) InsertItem(payload Items) {
+func (s *StubStore) insertItems(payload Items) {
 	s.items = maps.Clone(payload)
+}
+
+func (s *StubStore) getItem(id string) Item {
+	value := s.items[id]
+	return value
 }
 
 func TestGETStore(t *testing.T) {
@@ -38,6 +43,25 @@ func TestGETStore(t *testing.T) {
 
 	assertStatus(t, response.Code, http.StatusOK)
 	assertStoreState(t, got, items)
+	assetContentType(t, response, jsonContentType)
+}
+
+func TestGETItem(t *testing.T) {
+	items := Items{"1": "item_one", "2": "item_two"}
+	store := StubStore{
+		items: items,
+	}
+	server := NewServer(&store)
+	request := httptest.NewRequest(http.MethodGet, "/items/1", nil)
+	response := httptest.NewRecorder()
+
+	server.ServeHTTP(response, request)
+
+	got := getItemsFromResponse(t, response.Body)
+	want := Items{"1": "item_one"}
+
+	assertStatus(t, response.Code, http.StatusOK)
+	assertStoreState(t, got, want)
 	assetContentType(t, response, jsonContentType)
 }
 

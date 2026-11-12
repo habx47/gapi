@@ -3,15 +3,18 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 )
 
 const jsonContentType = "application/json"
 
-type Items map[string]string
+type Item string
+type Items map[string]Item
 
 type Store interface {
-	GetItems() Items
-	InsertItem(payload Items)
+	getItems() Items
+	insertItems(payload Items)
+	getItem(key string) Item
 }
 
 type Server struct {
@@ -19,18 +22,9 @@ type Server struct {
 	http.Handler
 }
 
-func (s *Server) storeHandler(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodGet:
-		s.listItems(w)
-	case http.MethodPost:
-		s.createItem(w, r)
-	}
-}
-
-func (s *Server) listItems(w http.ResponseWriter) {
+func (s *Server) listItems(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("content-type", jsonContentType)
-	json.NewEncoder(w).Encode(s.store.GetItems())
+	json.NewEncoder(w).Encode(s.store.getItems())
 }
 
 func (s *Server) createItem(w http.ResponseWriter, r *http.Request) {
@@ -46,7 +40,16 @@ func (s *Server) createItem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusAccepted)
-	s.store.InsertItem(payload)
+	s.store.insertItems(payload)
+}
+
+func (s *Server) getItem(w http.ResponseWriter, r *http.Request) {
+	key := strings.TrimPrefix(r.URL.Path, "/items/")
+	value := s.store.getItem(key)
+
+	item := Items{key: value}
+	w.Header().Set("content-type", jsonContentType)
+	json.NewEncoder(w).Encode(item)
 }
 
 func NewServer(store Store) *Server {
@@ -54,7 +57,9 @@ func NewServer(store Store) *Server {
 	s.store = store
 
 	router := http.NewServeMux()
-	router.Handle("/items", http.HandlerFunc(s.storeHandler))
+	router.Handle("GET /items", http.HandlerFunc(s.listItems))
+	router.Handle("GET /items/{id}", http.HandlerFunc(s.getItem))
+	router.Handle("POST /items", http.HandlerFunc(s.createItem))
 
 	s.Handler = router
 
