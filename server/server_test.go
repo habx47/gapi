@@ -33,6 +33,11 @@ func (s *StubStore) updateItem(key string, value Item) bool {
 	return true
 }
 
+func (s *StubStore) deleteItem(key string) bool {
+	delete(s.items, key)
+	return true
+}
+
 func TestGETStore(t *testing.T) {
 	items := Items{"1": "item_one"}
 	store := StubStore{
@@ -109,6 +114,19 @@ func TestPUTItem(t *testing.T) {
 	server := NewServer(&store)
 	request := httptest.NewRequest(http.MethodPut, "/items/1", bytes.NewReader(jsonBytes))
 	request.Header.Set("content-type", jsonContentType)
+	response := httptest.NewRecorder()
+
+	server.ServeHTTP(response, request)
+
+	assertStatus(t, response.Code, http.StatusNoContent)
+	assertStoreState(t, store.items, updatedStore.items)
+}
+
+func TestDELETEItem(t *testing.T) {
+	store := StubStore{items: Items{"1": "item_one", "2": "item_two"}}
+	updatedStore := StubStore{items: Items{"1": "item_one"}}
+	server := NewServer(&store)
+	request := httptest.NewRequest(http.MethodDelete, "/items/2", nil)
 	response := httptest.NewRecorder()
 
 	server.ServeHTTP(response, request)

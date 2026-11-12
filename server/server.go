@@ -16,6 +16,7 @@ type Store interface {
 	insertItems(payload Items)
 	getItem(key string) Item
 	updateItem(key string, value Item) bool
+	deleteItem(key string) bool
 }
 
 type Server struct {
@@ -77,6 +78,14 @@ func (s *Server) updateItem(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (s *Server) removeItem(w http.ResponseWriter, r *http.Request) {
+	key := strings.TrimPrefix(r.URL.Path, "/items/")
+	isDeleted := s.store.deleteItem(key)
+	if isDeleted {
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
 func NewServer(store Store) *Server {
 	s := new(Server)
 	s.store = store
@@ -86,6 +95,7 @@ func NewServer(store Store) *Server {
 	router.Handle("GET /items/{id}", http.HandlerFunc(s.getItem))
 	router.Handle("POST /items", http.HandlerFunc(s.createItem))
 	router.Handle("PUT /items/{id}", http.HandlerFunc(s.updateItem))
+	router.Handle("DELETE /items/{id}", http.HandlerFunc(s.removeItem))
 
 	s.Handler = router
 
