@@ -41,9 +41,15 @@ func (s *StubStore) updateItem(key string, value Item) bool {
 	return true
 }
 
-func (s *StubStore) deleteItem(key string) bool {
+func (s *StubStore) deleteItem(key string) (bool, error) {
+	if s.failure {
+		return false, errors.New("internal server error")
+	}
+	if _, ok := s.items[key]; !ok {
+		return false, nil
+	}
 	delete(s.items, key)
-	return true
+	return true, nil
 }
 
 func TestGETStore(t *testing.T) {
@@ -98,7 +104,7 @@ func TestGETItem(t *testing.T) {
 		assertContentType(t, response, jsonContentType)
 	})
 
-	t.Run("item not found", func(t *testing.T) {
+	t.Run("non-existent key", func(t *testing.T) {
 		items := Items{"1": "item_one"}
 		store := StubStore{
 			items: items,
@@ -176,16 +182,40 @@ func TestPUTItem(t *testing.T) {
 }
 
 func TestDELETEItem(t *testing.T) {
-	store := StubStore{items: Items{"1": "item_one", "2": "item_two"}}
-	updatedStore := StubStore{items: Items{"1": "item_one"}}
-	server := NewServer(&store)
-	request := httptest.NewRequest(http.MethodDelete, "/items/2", nil)
-	response := httptest.NewRecorder()
+	t.Run("success on deletion", func(t *testing.T) {
+		store := StubStore{items: Items{"1": "item_one", "2": "item_two"}}
+		updatedStore := StubStore{items: Items{"1": "item_one"}}
+		server := NewServer(&store)
+		request := httptest.NewRequest(http.MethodDelete, "/items/2", nil)
+		response := httptest.NewRecorder()
 
-	server.ServeHTTP(response, request)
+		server.ServeHTTP(response, request)
 
-	assertStatus(t, response.Code, http.StatusNoContent)
-	assertStoreState(t, store.items, updatedStore.items)
+		assertStatus(t, response.Code, http.StatusNoContent)
+		assertStoreState(t, store.items, updatedStore.items)
+	})
+
+	t.Run("non-existent key", func(t *testing.T) {
+		store := StubStore{items: Items{"1": "item_one"}}
+		server := NewServer(&store)
+		request := httptest.NewRequest(http.MethodDelete, "/items/2", nil)
+		response := httptest.NewRecorder()
+
+		server.ServeHTTP(response, request)
+
+		assertStatus(t, response.Code, http.StatusNotFound)
+	})
+
+	t.Run("internal server error", func(t *testing.T) {
+		store := StubStore{items: Items{"1": "item_one"}, failure: true}
+		server := NewServer(&store)
+		request := httptest.NewRequest(http.MethodDelete, "/items/1", nil)
+		response := httptest.NewRecorder()
+
+		server.ServeHTTP(response, request)
+
+		assertStatus(t, response.Code, http.StatusInternalServerError)
+	})
 }
 
 func getItemsFromResponse(t testing.TB, body io.Reader) (items Items) {

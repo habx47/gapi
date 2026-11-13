@@ -16,7 +16,7 @@ type Store interface {
 	insertItems(payload Items)
 	getItem(key string) (Item, error)
 	updateItem(key string, value Item) bool
-	deleteItem(key string) bool
+	deleteItem(key string) (bool, error)
 }
 
 type Server struct {
@@ -92,10 +92,16 @@ func (s *Server) updateItem(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) removeItem(w http.ResponseWriter, r *http.Request) {
 	key := strings.TrimPrefix(r.URL.Path, "/items/")
-	isDeleted := s.store.deleteItem(key)
-	if isDeleted {
-		w.WriteHeader(http.StatusNoContent)
+	isDeleted, err := s.store.deleteItem(key)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
+	if !isDeleted {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func NewServer(store Store) *Server {
