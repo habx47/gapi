@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"maps"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -24,8 +23,12 @@ func (s *StubStore) getItems() (Items, error) {
 	return s.items, nil
 }
 
-func (s *StubStore) insertItems(payload Items) {
-	s.items = maps.Clone(payload)
+func (s *StubStore) insertItems(value Item) error {
+	if s.failure {
+		return errors.New("internal server errror")
+	}
+	s.items["1"] = value
+	return nil
 }
 
 func (s *StubStore) getItem(id string) (Item, error) {
@@ -142,10 +145,11 @@ func TestGETItem(t *testing.T) {
 
 func TestPOSTStore(t *testing.T) {
 	t.Run("content-type: application/json", func(t *testing.T) {
-		payload := Items{"1": "item_one"}
+		payload := Items{"value": "item_one"}
 		jsonBytes, _ := json.Marshal(payload)
 
-		store := StubStore{}
+		store := StubStore{items: Items{}}
+		updatedStore := Items{"1": "item_one"}
 		server := NewServer(&store)
 		request := httptest.NewRequest(http.MethodPost, "/items", bytes.NewReader(jsonBytes))
 		request.Header.Set("content-type", jsonContentType)
@@ -154,7 +158,7 @@ func TestPOSTStore(t *testing.T) {
 		server.ServeHTTP(response, request)
 
 		assertStatus(t, response.Code, http.StatusAccepted)
-		assertStoreState(t, store.items, payload)
+		assertStoreState(t, store.items, updatedStore)
 	})
 
 	t.Run("content-type: text/plain", func(t *testing.T) {
@@ -162,6 +166,36 @@ func TestPOSTStore(t *testing.T) {
 		server := NewServer(&store)
 		request := httptest.NewRequest(http.MethodPost, "/items", nil)
 		request.Header.Set("content-type", "text/plain")
+		response := httptest.NewRecorder()
+
+		server.ServeHTTP(response, request)
+
+		assertStatus(t, response.Code, http.StatusBadRequest)
+	})
+
+	t.Run("server failure on inserting item", func(t *testing.T) {
+		payload := Items{"value": "item_one"}
+		jsonBytes, _ := json.Marshal(payload)
+
+		store := StubStore{items: Items{}, failure: true}
+		server := NewServer(&store)
+		request := httptest.NewRequest(http.MethodPost, "/items", bytes.NewReader(jsonBytes))
+		request.Header.Set("content-type", jsonContentType)
+		response := httptest.NewRecorder()
+
+		server.ServeHTTP(response, request)
+
+		assertStatus(t, response.Code, http.StatusInternalServerError)
+	})
+
+	t.Run("invalid payload - no value key", func(t *testing.T) {
+		payload := Items{"val": "item_one"}
+		jsonBytes, _ := json.Marshal(payload)
+
+		store := StubStore{items: Items{}, failure: true}
+		server := NewServer(&store)
+		request := httptest.NewRequest(http.MethodPost, "/items", bytes.NewReader(jsonBytes))
+		request.Header.Set("content-type", jsonContentType)
 		response := httptest.NewRecorder()
 
 		server.ServeHTTP(response, request)

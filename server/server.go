@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 )
@@ -13,7 +14,7 @@ type Items map[string]Item
 
 type Store interface {
 	getItems() (Items, error)
-	insertItems(payload Items)
+	insertItems(value Item) error
 	getItem(key string) (Item, error)
 	updateItem(key string, value Item) (bool, error)
 	deleteItem(key string) (bool, error)
@@ -39,15 +40,17 @@ func (s *Server) createItem(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	var payload Items
-	err := json.NewDecoder(r.Body).Decode(&payload)
+	value, err := s.validatePayload(w, r)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-
+	insertErr := s.store.insertItems(value)
+	if insertErr != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 	w.WriteHeader(http.StatusAccepted)
-	s.store.insertItems(payload)
 }
 
 func (s *Server) getItem(w http.ResponseWriter, r *http.Request) {
@@ -73,19 +76,11 @@ func (s *Server) updateItem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	key := strings.TrimPrefix(r.URL.Path, "/items/")
-	var payload map[string]Item
-	err := json.NewDecoder(r.Body).Decode(&payload)
+	value, err := s.validatePayload(w, r)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-
-	value, ok := payload["value"]
-	if !ok {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
 	updated, err := s.store.updateItem(key, value)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -110,6 +105,21 @@ func (s *Server) removeItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) validatePayload(w http.ResponseWriter, r *http.Request) (Item, error) {
+	var payload map[string]Item
+	err := json.NewDecoder(r.Body).Decode(&payload)
+	if err != nil {
+		return "", err
+	}
+
+	value, ok := payload["value"]
+	if !ok {
+		w.WriteHeader(http.StatusBadRequest)
+		return "", errors.New("json not as per required format: missing value key")
+	}
+	return value, nil
 }
 
 func NewServer(store Store) *Server {
