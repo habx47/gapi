@@ -28,9 +28,12 @@ func (s *StubStore) insertItems(payload Items) {
 	s.items = maps.Clone(payload)
 }
 
-func (s *StubStore) getItem(id string) Item {
+func (s *StubStore) getItem(id string) (Item, error) {
+	if s.failure {
+		return "", errors.New("internal server error")
+	}
 	value := s.items[id]
-	return value
+	return value, nil
 }
 
 func (s *StubStore) updateItem(key string, value Item) bool {
@@ -76,22 +79,53 @@ func TestGETStore(t *testing.T) {
 }
 
 func TestGETItem(t *testing.T) {
-	items := Items{"1": "item_one", "2": "item_two"}
-	store := StubStore{
-		items: items,
-	}
-	server := NewServer(&store)
-	request := httptest.NewRequest(http.MethodGet, "/items/1", nil)
-	response := httptest.NewRecorder()
+	t.Run("success on fetching an item", func(t *testing.T) {
+		items := Items{"1": "item_one", "2": "item_two"}
+		store := StubStore{
+			items: items,
+		}
+		server := NewServer(&store)
+		request := httptest.NewRequest(http.MethodGet, "/items/1", nil)
+		response := httptest.NewRecorder()
 
-	server.ServeHTTP(response, request)
+		server.ServeHTTP(response, request)
 
-	got := getItemsFromResponse(t, response.Body)
-	want := Items{"1": "item_one"}
+		got := getItemsFromResponse(t, response.Body)
+		want := Items{"1": "item_one"}
 
-	assertStatus(t, response.Code, http.StatusOK)
-	assertStoreState(t, got, want)
-	assertContentType(t, response, jsonContentType)
+		assertStatus(t, response.Code, http.StatusOK)
+		assertStoreState(t, got, want)
+		assertContentType(t, response, jsonContentType)
+	})
+
+	t.Run("item not found", func(t *testing.T) {
+		items := Items{"1": "item_one"}
+		store := StubStore{
+			items: items,
+		}
+		server := NewServer(&store)
+		request := httptest.NewRequest(http.MethodGet, "/items/2", nil)
+		response := httptest.NewRecorder()
+
+		server.ServeHTTP(response, request)
+
+		assertStatus(t, response.Code, http.StatusNotFound)
+	})
+
+	t.Run("server failure on fetching item", func(t *testing.T) {
+		items := Items{"1": "item_one"}
+		store := StubStore{
+			items:   items,
+			failure: true,
+		}
+		server := NewServer(&store)
+		request := httptest.NewRequest(http.MethodGet, "/items/1", nil)
+		response := httptest.NewRecorder()
+
+		server.ServeHTTP(response, request)
+
+		assertStatus(t, response.Code, http.StatusInternalServerError)
+	})
 }
 
 func TestPOSTStore(t *testing.T) {

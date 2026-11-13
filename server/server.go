@@ -14,7 +14,7 @@ type Items map[string]Item
 type Store interface {
 	getItems() (Items, error)
 	insertItems(payload Items)
-	getItem(key string) Item
+	getItem(key string) (Item, error)
 	updateItem(key string, value Item) bool
 	deleteItem(key string) bool
 }
@@ -52,8 +52,15 @@ func (s *Server) createItem(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) getItem(w http.ResponseWriter, r *http.Request) {
 	key := strings.TrimPrefix(r.URL.Path, "/items/")
-	value := s.store.getItem(key)
-
+	value, err := s.store.getItem(key)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	if len(value) == 0 {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
 	item := Items{key: value}
 	w.Header().Set("content-type", jsonContentType)
 	json.NewEncoder(w).Encode(item)
