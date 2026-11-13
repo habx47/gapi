@@ -15,7 +15,7 @@ type Store interface {
 	getItems() (Items, error)
 	insertItems(payload Items)
 	getItem(key string) (Item, error)
-	updateItem(key string, value Item) bool
+	updateItem(key string, value Item) (bool, error)
 	deleteItem(key string) (bool, error)
 }
 
@@ -86,7 +86,15 @@ func (s *Server) updateItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_ = s.store.updateItem(key, value)
+	updated, err := s.store.updateItem(key, value)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	if !updated {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
