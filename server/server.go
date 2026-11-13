@@ -12,7 +12,7 @@ type Item string
 type Items map[string]Item
 
 type Store interface {
-	getItems() Items
+	getItems() (Items, error)
 	insertItems(payload Items)
 	getItem(key string) Item
 	updateItem(key string, value Item) bool
@@ -25,8 +25,13 @@ type Server struct {
 }
 
 func (s *Server) listItems(w http.ResponseWriter, r *http.Request) {
+	items, err := s.store.getItems()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("content-type", jsonContentType)
-	json.NewEncoder(w).Encode(s.store.getItems())
+	json.NewEncoder(w).Encode(items)
 }
 
 func (s *Server) createItem(w http.ResponseWriter, r *http.Request) {

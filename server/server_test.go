@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 	"maps"
 	"net/http"
@@ -12,11 +13,15 @@ import (
 )
 
 type StubStore struct {
-	items Items
+	items   Items
+	failure bool
 }
 
-func (s *StubStore) getItems() Items {
-	return s.items
+func (s *StubStore) getItems() (Items, error) {
+	if s.failure {
+		return nil, errors.New("internal server error")
+	}
+	return s.items, nil
 }
 
 func (s *StubStore) insertItems(payload Items) {
@@ -39,21 +44,35 @@ func (s *StubStore) deleteItem(key string) bool {
 }
 
 func TestGETStore(t *testing.T) {
-	items := Items{"1": "item_one"}
-	store := StubStore{
-		items: items,
-	}
-	server := NewServer(&store)
-	request := httptest.NewRequest(http.MethodGet, "/items", nil)
-	response := httptest.NewRecorder()
+	t.Run("success of fetching store", func(t *testing.T) {
+		items := Items{"1": "item_one"}
+		store := StubStore{
+			items: items,
+		}
+		server := NewServer(&store)
+		request := httptest.NewRequest(http.MethodGet, "/items", nil)
+		response := httptest.NewRecorder()
 
-	server.ServeHTTP(response, request)
+		server.ServeHTTP(response, request)
 
-	got := getItemsFromResponse(t, response.Body)
+		got := getItemsFromResponse(t, response.Body)
 
-	assertStatus(t, response.Code, http.StatusOK)
-	assertStoreState(t, got, items)
-	assetContentType(t, response, jsonContentType)
+		assertStatus(t, response.Code, http.StatusOK)
+		assertStoreState(t, got, items)
+		assertContentType(t, response, jsonContentType)
+	})
+
+	t.Run("server failure on fetching store", func(t *testing.T) {
+		items := Items{"1": "item_one"}
+		store := StubStore{items: items, failure: true}
+		server := NewServer(&store)
+		request := httptest.NewRequest(http.MethodGet, "/items", nil)
+		response := httptest.NewRecorder()
+
+		server.ServeHTTP(response, request)
+
+		assertStatus(t, response.Code, http.StatusInternalServerError)
+	})
 }
 
 func TestGETItem(t *testing.T) {
@@ -72,7 +91,7 @@ func TestGETItem(t *testing.T) {
 
 	assertStatus(t, response.Code, http.StatusOK)
 	assertStoreState(t, got, want)
-	assetContentType(t, response, jsonContentType)
+	assertContentType(t, response, jsonContentType)
 }
 
 func TestPOSTStore(t *testing.T) {
@@ -152,7 +171,7 @@ func assertStatus(t testing.TB, got, want int) {
 	}
 }
 
-func assetContentType(t testing.TB, response *httptest.ResponseRecorder, want string) {
+func assertContentType(t testing.TB, response *httptest.ResponseRecorder, want string) {
 	t.Helper()
 	if response.Result().Header.Get("content-type") != want {
 		t.Errorf("response did not have content-type of %s, got: %v", want, response.Result().Header)
