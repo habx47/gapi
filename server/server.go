@@ -3,6 +3,8 @@ package server
 import (
 	"encoding/json"
 	"errors"
+	"io"
+	"mime"
 	"net/http"
 	"strings"
 )
@@ -13,11 +15,11 @@ type Item string
 type Items map[string]Item
 
 type Store interface {
-	getItems() (Items, error)
-	insertItems(value Item) error
-	getItem(key string) (Item, error)
-	updateItem(key string, value Item) (bool, error)
-	deleteItem(key string) (bool, error)
+	GetItems() (Items, error)
+	InsertItems(value Item) error
+	GetItem(key string) (Item, bool, error)
+	UpdateItem(key string, value Item) (bool, error)
+	DeleteItem(key string) (bool, error)
 }
 
 type Server struct {
@@ -26,7 +28,7 @@ type Server struct {
 }
 
 func (s *Server) listItems(w http.ResponseWriter, r *http.Request) {
-	items, err := s.store.getItems()
+	items, err := s.store.GetItems()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -36,31 +38,32 @@ func (s *Server) listItems(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) createItem(w http.ResponseWriter, r *http.Request) {
-	if r.Header.Get("content-type") != jsonContentType {
-		w.WriteHeader(http.StatusBadRequest)
+	err := s.validateContentType(r.Header.Get("Content-Type"))
+	if err != nil {
+		w.WriteHeader(http.StatusUnsupportedMediaType)
 		return
 	}
-	value, err := s.validatePayload(w, r)
+	value, err := s.validatePayload(r.Body)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	insertErr := s.store.insertItems(value)
+	insertErr := s.store.InsertItems(value)
 	if insertErr != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	w.WriteHeader(http.StatusAccepted)
+	w.WriteHeader(http.StatusCreated)
 }
 
 func (s *Server) getItem(w http.ResponseWriter, r *http.Request) {
 	key := strings.TrimPrefix(r.URL.Path, "/items/")
-	value, err := s.store.getItem(key)
+	value, found, err := s.store.GetItem(key)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	if len(value) == 0 {
+	if !found {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -70,18 +73,19 @@ func (s *Server) getItem(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) updateItem(w http.ResponseWriter, r *http.Request) {
-	if r.Header.Get("content-type") != jsonContentType {
-		w.WriteHeader(http.StatusBadRequest)
+	err := s.validateContentType(r.Header.Get("Content-Type"))
+	if err != nil {
+		w.WriteHeader(http.StatusUnsupportedMediaType)
 		return
 	}
 
 	key := strings.TrimPrefix(r.URL.Path, "/items/")
-	value, err := s.validatePayload(w, r)
+	value, err := s.validatePayload(r.Body)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	updated, err := s.store.updateItem(key, value)
+	updated, err := s.store.UpdateItem(key, value)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -95,7 +99,7 @@ func (s *Server) updateItem(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) removeItem(w http.ResponseWriter, r *http.Request) {
 	key := strings.TrimPrefix(r.URL.Path, "/items/")
-	isDeleted, err := s.store.deleteItem(key)
+	isDeleted, err := s.store.DeleteItem(key)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -107,16 +111,27 @@ func (s *Server) removeItem(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (s *Server) validatePayload(w http.ResponseWriter, r *http.Request) (Item, error) {
+func (s *Server) validateContentType(header string) error {
+	if header == "" {
+		return errors.New("Content-Type header is required")
+	}
+
+	mediaType, _, err := mime.ParseMediaType(header)
+	if err != nil || mediaType != jsonContentType {
+		return errors.New("Content-Type must be applicaton/json")
+	}
+	return nil
+}
+
+func (s *Server) validatePayload(body io.ReadCloser) (Item, error) {
 	var payload map[string]Item
-	err := json.NewDecoder(r.Body).Decode(&payload)
+	err := json.NewDecoder(body).Decode(&payload)
 	if err != nil {
 		return "", err
 	}
 
 	value, ok := payload["value"]
 	if !ok {
-		w.WriteHeader(http.StatusBadRequest)
 		return "", errors.New("json not as per required format: missing value key")
 	}
 	return value, nil

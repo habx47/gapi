@@ -16,14 +16,14 @@ type StubStore struct {
 	failure bool
 }
 
-func (s *StubStore) getItems() (Items, error) {
+func (s *StubStore) GetItems() (Items, error) {
 	if s.failure {
 		return nil, errors.New("internal server error")
 	}
 	return s.items, nil
 }
 
-func (s *StubStore) insertItems(value Item) error {
+func (s *StubStore) InsertItems(value Item) error {
 	if s.failure {
 		return errors.New("internal server errror")
 	}
@@ -31,15 +31,18 @@ func (s *StubStore) insertItems(value Item) error {
 	return nil
 }
 
-func (s *StubStore) getItem(id string) (Item, error) {
+func (s *StubStore) GetItem(id string) (Item, bool, error) {
 	if s.failure {
-		return "", errors.New("internal server error")
+		return "", false, errors.New("internal server error")
 	}
-	value := s.items[id]
-	return value, nil
+	value, ok := s.items[id]
+	if !ok {
+		return "", false, nil
+	}
+	return value, true, nil
 }
 
-func (s *StubStore) updateItem(key string, value Item) (bool, error) {
+func (s *StubStore) UpdateItem(key string, value Item) (bool, error) {
 	if s.failure {
 		return false, errors.New("internal server error")
 	}
@@ -50,7 +53,7 @@ func (s *StubStore) updateItem(key string, value Item) (bool, error) {
 	return true, nil
 }
 
-func (s *StubStore) deleteItem(key string) (bool, error) {
+func (s *StubStore) DeleteItem(key string) (bool, error) {
 	if s.failure {
 		return false, errors.New("internal server error")
 	}
@@ -157,7 +160,7 @@ func TestPOSTStore(t *testing.T) {
 
 		server.ServeHTTP(response, request)
 
-		assertStatus(t, response.Code, http.StatusAccepted)
+		assertStatus(t, response.Code, http.StatusCreated)
 		assertStoreState(t, store.items, updatedStore)
 	})
 
@@ -170,7 +173,7 @@ func TestPOSTStore(t *testing.T) {
 
 		server.ServeHTTP(response, request)
 
-		assertStatus(t, response.Code, http.StatusBadRequest)
+		assertStatus(t, response.Code, http.StatusUnsupportedMediaType)
 	})
 
 	t.Run("server failure on inserting item", func(t *testing.T) {
