@@ -7,7 +7,6 @@ import (
 	"mime"
 	"net/http"
 	"strings"
-	"sync"
 )
 
 const jsonContentType = "application/json"
@@ -32,14 +31,11 @@ type ItemsStore interface {
 }
 
 type ItemsServer struct {
-	mu    sync.Mutex
 	store ItemsStore
 	http.Handler
 }
 
 func (s *ItemsServer) listItems(w http.ResponseWriter, r *http.Request) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	items, err := s.store.GetItems()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -65,8 +61,6 @@ func (s *ItemsServer) createItem(w http.ResponseWriter, r *http.Request) {
 		Name: payload.Value,
 		//needs UserID extracted from r.Context().Value() and put here
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	insertErr := s.store.InsertItems(item)
 	if insertErr != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -77,8 +71,6 @@ func (s *ItemsServer) createItem(w http.ResponseWriter, r *http.Request) {
 
 func (s *ItemsServer) getItem(w http.ResponseWriter, r *http.Request) {
 	key := strings.TrimPrefix(r.URL.Path, "/items/")
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	value, found, err := s.store.GetItem(key)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -106,8 +98,6 @@ func (s *ItemsServer) updateItem(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	updated, err := s.store.UpdateItem(key, payload.Value)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -122,8 +112,6 @@ func (s *ItemsServer) updateItem(w http.ResponseWriter, r *http.Request) {
 
 func (s *ItemsServer) removeItem(w http.ResponseWriter, r *http.Request) {
 	key := strings.TrimPrefix(r.URL.Path, "/items/")
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	isDeleted, err := s.store.DeleteItem(key)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
