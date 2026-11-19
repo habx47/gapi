@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"sync"
 
 	"github.com/habx47/gapi/password"
 )
@@ -24,6 +25,7 @@ type UserStore interface {
 }
 
 type UserServer struct {
+	mu    sync.Mutex
 	store UserStore
 	http.Handler
 }
@@ -31,6 +33,7 @@ type UserServer struct {
 func (u *UserServer) createUser(w http.ResponseWriter, r *http.Request) {
 	payload, _ := r.Context().Value(payload_key).(RequestPayload)
 
+	u.mu.Lock()
 	exists, err := u.store.CheckByEmail(payload.Email)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -57,6 +60,8 @@ func (u *UserServer) createUser(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+
+	u.mu.Unlock()
 
 	w.Header().Set("Content-Type", jsonContentType)
 	w.WriteHeader(http.StatusCreated)
