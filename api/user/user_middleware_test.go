@@ -75,7 +75,6 @@ func TestUserMiddleware(t *testing.T) {
 		want := RequestPayload{Email: "hello@test.com", Password: "abc"}
 
 		assertPayload(t, RequestPayload(stubHandler), want)
-
 	})
 }
 

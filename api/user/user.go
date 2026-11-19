@@ -13,7 +13,7 @@ const jsonContentType = "application/json"
 type User struct {
 	ID         int    `json:"id"`
 	Email      string `json:"email"`
-	PasswdHash []byte `json:"="`
+	PasswdHash []byte `json:"-"`
 }
 
 type UserStore interface {
@@ -71,7 +71,7 @@ func NewUserServer(store UserStore) *UserServer {
 	u.store = store
 
 	router := http.NewServeMux()
-	router.Handle("POST /users", http.HandlerFunc(u.createUser))
+	router.Handle("POST /", http.HandlerFunc(u.createUser))
 
 	u.Handler = router
 

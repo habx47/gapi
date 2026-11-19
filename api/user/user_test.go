@@ -1,0 +1,77 @@
+package user
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+)
+
+type StubUserStore struct {
+	err    bool
+	exists bool
+	UserStore
+}
+
+func (s *StubUserStore) Create(u User) (User, error) {
+	if s.err {
+		return User{}, errors.New("internal server error")
+	}
+	u.ID = 1
+	return u, nil
+}
+
+func (s *StubUserStore) CheckByEmail(email string) (bool, error) {
+	if s.exists {
+		return true, nil
+	}
+	return false, nil
+}
+
+type ResponseUser struct {
+	ID    int    `json:"id"`
+	Email string `json:"email"`
+}
+
+func TestCreateUser(t *testing.T) {
+	t.Run("success on creating user", func(t *testing.T) {
+		stubUserStore := StubUserStore{}
+		payload := RequestPayload{
+			Email:    "test@test.com",
+			Password: "abc",
+		}
+		request := httptest.NewRequest(http.MethodPost, "/", nil)
+		response := httptest.NewRecorder()
+		server := NewUserServer(&stubUserStore)
+
+		ctx := context.WithValue(request.Context(), payload_key, payload)
+
+		server.ServeHTTP(response, request.WithContext(ctx))
+
+		var responseUser ResponseUser
+		err := json.NewDecoder(response.Body).Decode(&responseUser)
+		if err != nil {
+			t.Fatalf("could not read response from the response: %v", err)
+		}
+
+		assertStatus(t, response.Code, http.StatusCreated)
+		assertContentType(t, response, jsonContentType)
+		assertResponseUser(t, responseUser, ResponseUser{ID: 1, Email: "test@test.com"})
+	})
+}
+
+func assertContentType(t testing.TB, response *httptest.ResponseRecorder, want string) {
+	t.Helper()
+	if response.Result().Header.Get("Content-Type") != want {
+		t.Errorf("response did not have content-type of %s, got: %v", want, response.Result().Header)
+	}
+}
+
+func assertResponseUser(t testing.TB, got, want ResponseUser) {
+	t.Helper()
+	if got != want {
+		t.Errorf("got: %+v as response, want: %+v", got, want)
+	}
+}
