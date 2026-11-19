@@ -9,6 +9,14 @@ import (
 	"testing"
 )
 
+const TestEmail = "test@test.com"
+const TestPassword = "abc"
+
+var payload RequestPayload = RequestPayload{
+	Email:    TestEmail,
+	Password: TestPassword,
+}
+
 type StubUserStore struct {
 	err    bool
 	exists bool
@@ -38,15 +46,11 @@ type ResponseUser struct {
 func TestCreateUser(t *testing.T) {
 	t.Run("success on creating user", func(t *testing.T) {
 		stubUserStore := StubUserStore{}
-		payload := RequestPayload{
-			Email:    "test@test.com",
-			Password: "abc",
-		}
 		request := httptest.NewRequest(http.MethodPost, "/", nil)
 		response := httptest.NewRecorder()
 		server := NewUserServer(&stubUserStore)
 
-		ctx := context.WithValue(request.Context(), payload_key, payload)
+		ctx := createContext(request, payload)
 
 		server.ServeHTTP(response, request.WithContext(ctx))
 
@@ -58,8 +62,42 @@ func TestCreateUser(t *testing.T) {
 
 		assertStatus(t, response.Code, http.StatusCreated)
 		assertContentType(t, response, jsonContentType)
-		assertResponseUser(t, responseUser, ResponseUser{ID: 1, Email: "test@test.com"})
+		assertResponseUser(t, responseUser, ResponseUser{ID: 1, Email: TestEmail})
 	})
+
+	t.Run("email already exists", func(t *testing.T) {
+		stubUserStore := StubUserStore{
+			exists: true,
+		}
+		request := httptest.NewRequest(http.MethodPost, "/", nil)
+		response := httptest.NewRecorder()
+		server := NewUserServer(&stubUserStore)
+
+		ctx := createContext(request, payload)
+
+		server.ServeHTTP(response, request.WithContext(ctx))
+
+		assertStatus(t, response.Code, http.StatusConflict)
+	})
+
+	t.Run("internal server error on user creation", func(t *testing.T) {
+		stubUserStore := StubUserStore{
+			err: true,
+		}
+		request := httptest.NewRequest(http.MethodPost, "/", nil)
+		response := httptest.NewRecorder()
+		server := NewUserServer(&stubUserStore)
+
+		ctx := createContext(request, payload)
+
+		server.ServeHTTP(response, request.WithContext(ctx))
+
+		assertStatus(t, response.Code, http.StatusInternalServerError)
+	})
+}
+
+func createContext(req *http.Request, value RequestPayload) context.Context {
+	return context.WithValue(req.Context(), payload_key, value)
 }
 
 func assertContentType(t testing.TB, response *httptest.ResponseRecorder, want string) {
