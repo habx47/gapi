@@ -34,6 +34,7 @@ func (u *UserServer) createUser(w http.ResponseWriter, r *http.Request) {
 	payload, _ := r.Context().Value(payload_key).(RequestPayload)
 
 	u.mu.Lock()
+	defer u.mu.Unlock()
 	exists, err := u.store.CheckByEmail(payload.Email)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -60,8 +61,6 @@ func (u *UserServer) createUser(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-
-	u.mu.Unlock()
 
 	w.Header().Set("Content-Type", jsonContentType)
 	w.WriteHeader(http.StatusCreated)
