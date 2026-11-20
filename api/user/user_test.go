@@ -12,7 +12,7 @@ import (
 )
 
 const TestEmail = "test@test.com"
-const TestPassword = "abc"
+const TestPassword = "abcabcabc"
 
 var payload RequestPayload = RequestPayload{
 	Email:    TestEmail,
@@ -20,9 +20,9 @@ var payload RequestPayload = RequestPayload{
 }
 
 type StubUserStore struct {
-	err                bool
-	exists             bool
-	invalidCredentials bool
+	err          bool
+	exists       bool
+	invalidEmail bool
 	UserStore
 }
 
@@ -38,14 +38,14 @@ func (s *StubUserStore) Create(u User) (User, error) {
 }
 
 func (s *StubUserStore) GetByEmail(email string) (User, error) {
-	if s.invalidCredentials {
+	if s.invalidEmail {
 		return User{}, UserNotFoundErr
 	}
 
-	passwordHash, _ := password.Hash("abcabc")
+	passwordHash, _ := password.Hash(TestPassword)
 	return User{
 		ID:         1,
-		Email:      "test@test.com",
+		Email:      TestEmail,
 		PasswdHash: []byte(passwordHash),
 	}, nil
 }
@@ -110,10 +110,27 @@ func TestCreateUser(t *testing.T) {
 
 func TestLogin(t *testing.T) {
 	t.Run("wrong login credentials - email", func(t *testing.T) {
-		stubUserStore := StubUserStore{invalidCredentials: true}
+		stubUserStore := StubUserStore{invalidEmail: true}
 		loginPayload := RequestPayload{
 			Email:    "test1@acme.com",
-			Password: "abcabc",
+			Password: "doesnotmatterhere",
+		}
+		request := httptest.NewRequest(http.MethodPost, "/login", nil)
+		response := httptest.NewRecorder()
+		server := NewUserServer(&stubUserStore)
+
+		ctx := createContext(request, loginPayload)
+
+		server.ServeHTTP(response, request.WithContext(ctx))
+
+		assertStatus(t, response.Code, http.StatusUnauthorized)
+	})
+
+	t.Run("wrong login credentials - password", func(t *testing.T) {
+		stubUserStore := StubUserStore{}
+		loginPayload := RequestPayload{
+			Email:    TestEmail,
+			Password: "wrongpassword",
 		}
 		request := httptest.NewRequest(http.MethodPost, "/login", nil)
 		response := httptest.NewRecorder()
