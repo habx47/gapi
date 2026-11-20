@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/habx47/gapi/password"
 )
 
 const TestEmail = "test@test.com"
@@ -18,8 +20,9 @@ var payload RequestPayload = RequestPayload{
 }
 
 type StubUserStore struct {
-	err    bool
-	exists bool
+	err                bool
+	exists             bool
+	invalidCredentials bool
 	UserStore
 }
 
@@ -32,6 +35,19 @@ func (s *StubUserStore) Create(u User) (User, error) {
 	}
 	u.ID = 1
 	return u, nil
+}
+
+func (s *StubUserStore) GetByEmail(email string) (User, error) {
+	if s.invalidCredentials {
+		return User{}, UserNotFoundErr
+	}
+
+	passwordHash, _ := password.Hash("abcabc")
+	return User{
+		ID:         1,
+		Email:      "test@test.com",
+		PasswdHash: []byte(passwordHash),
+	}, nil
 }
 
 type ResponseUser struct {
@@ -89,6 +105,25 @@ func TestCreateUser(t *testing.T) {
 		server.ServeHTTP(response, request.WithContext(ctx))
 
 		assertStatus(t, response.Code, http.StatusInternalServerError)
+	})
+}
+
+func TestLogin(t *testing.T) {
+	t.Run("wrong login credentials - email", func(t *testing.T) {
+		stubUserStore := StubUserStore{invalidCredentials: true}
+		loginPayload := RequestPayload{
+			Email:    "test1@acme.com",
+			Password: "abcabc",
+		}
+		request := httptest.NewRequest(http.MethodPost, "/login", nil)
+		response := httptest.NewRecorder()
+		server := NewUserServer(&stubUserStore)
+
+		ctx := createContext(request, loginPayload)
+
+		server.ServeHTTP(response, request.WithContext(ctx))
+
+		assertStatus(t, response.Code, http.StatusUnauthorized)
 	})
 }
 

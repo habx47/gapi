@@ -12,6 +12,7 @@ import (
 const JSONContentType = "application/json"
 
 var EmailExistsErr = errors.New("email already exists")
+var UserNotFoundErr = errors.New("user not found")
 
 type User struct {
 	ID         int    `json:"id"`
@@ -21,8 +22,8 @@ type User struct {
 
 type UserStore interface {
 	Create(u User) (User, error)
-	GetByID(id int) (bool, error)
-	GetByEmail(email string) (bool, error)
+	GetByID(id int) (User, error)
+	GetByEmail(email string) (User, error)
 }
 
 type UserServer struct {
@@ -63,6 +64,25 @@ func (u *UserServer) createUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (u *UserServer) login(w http.ResponseWriter, r *http.Request) {
+	payload, _ := r.Context().Value(payload_key).(RequestPayload)
+	user, err := u.store.GetByEmail(payload.Email)
+	if err != nil {
+		if errors.Is(err, UserNotFoundErr) {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	matched, err := password.Verify(string(user.PasswdHash), payload.Password)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	if !matched {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
 }
 
 func NewUserServer(store UserStore) *UserServer {
