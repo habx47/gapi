@@ -27,15 +27,11 @@ func (s *StubUserStore) Create(u User) (User, error) {
 	if s.err {
 		return User{}, errors.New("internal server error")
 	}
+	if s.exists {
+		return User{}, EmailExistsErr
+	}
 	u.ID = 1
 	return u, nil
-}
-
-func (s *StubUserStore) CheckByEmail(email string) (bool, error) {
-	if s.exists {
-		return true, nil
-	}
-	return false, nil
 }
 
 type ResponseUser struct {

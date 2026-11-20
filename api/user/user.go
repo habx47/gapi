@@ -2,6 +2,7 @@ package user
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 
@@ -9,6 +10,8 @@ import (
 )
 
 const JSONContentType = "application/json"
+
+var EmailExistsErr = errors.New("email already exists")
 
 type User struct {
 	ID         int    `json:"id"`
@@ -18,9 +21,8 @@ type User struct {
 
 type UserStore interface {
 	Create(u User) (User, error)
-	CheckByID(id int) (bool, error)
-	CheckByEmail(email string) (bool, error)
-	Delete(id int) (bool, error)
+	GetByID(id int) (bool, error)
+	GetByEmail(email string) (bool, error)
 }
 
 type UserServer struct {
@@ -30,15 +32,6 @@ type UserServer struct {
 
 func (u *UserServer) createUser(w http.ResponseWriter, r *http.Request) {
 	payload, _ := r.Context().Value(payload_key).(RequestPayload)
-	exists, err := u.store.CheckByEmail(payload.Email)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	if exists {
-		w.WriteHeader(http.StatusConflict)
-		return
-	}
 
 	hashedPassword, err := password.Hash(payload.Password)
 	if err != nil {
@@ -53,6 +46,10 @@ func (u *UserServer) createUser(w http.ResponseWriter, r *http.Request) {
 
 	createdUser, err := u.store.Create(user)
 	if err != nil {
+		if errors.Is(err, EmailExistsErr) {
+			w.WriteHeader(http.StatusConflict)
+			return
+		}
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
