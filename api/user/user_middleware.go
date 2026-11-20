@@ -20,8 +20,12 @@ type RequestPayload struct {
 
 const payload_key contextKey = "payload"
 
-func CreateUserMiddleware(next http.Handler) http.Handler {
+func UserMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "" {
+			r.URL.Path = "/"
+		}
+
 		err := validateContentType(r.Header.Get("Content-Type"))
 		if err != nil {
 			w.WriteHeader(http.StatusUnsupportedMediaType)
@@ -51,7 +55,7 @@ func validateContentType(header string) error {
 	}
 
 	mediaType, _, err := mime.ParseMediaType(header)
-	if err != nil || mediaType != jsonContentType {
+	if err != nil || mediaType != JSONContentType {
 		return errors.New("Content-Type must be application/json")
 	}
 	return nil

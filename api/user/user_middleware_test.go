@@ -26,7 +26,7 @@ func TestUserMiddleware(t *testing.T) {
 
 		request.Header.Set("Content-Type", "text/plain")
 
-		CreateUserMiddleware(&stubHandler).ServeHTTP(response, request)
+		UserMiddleware(&stubHandler).ServeHTTP(response, request)
 
 		assertStatus(t, response.Code, http.StatusUnsupportedMediaType)
 	})
@@ -39,9 +39,9 @@ func TestUserMiddleware(t *testing.T) {
 		request := httptest.NewRequest(http.MethodPost, "/users", bytes.NewReader(jsonPayload))
 		response := httptest.NewRecorder()
 
-		request.Header.Set("Content-Type", jsonContentType)
+		request.Header.Set("Content-Type", JSONContentType)
 
-		CreateUserMiddleware(&stubHandler).ServeHTTP(response, request)
+		UserMiddleware(&stubHandler).ServeHTTP(response, request)
 
 		assertStatus(t, response.Code, http.StatusBadRequest)
 	})
@@ -54,9 +54,9 @@ func TestUserMiddleware(t *testing.T) {
 		request := httptest.NewRequest(http.MethodPost, "/users", bytes.NewReader(jsonPayload))
 		response := httptest.NewRecorder()
 
-		request.Header.Set("Content-Type", jsonContentType)
+		request.Header.Set("Content-Type", JSONContentType)
 
-		CreateUserMiddleware(&stubHandler).ServeHTTP(response, request)
+		UserMiddleware(&stubHandler).ServeHTTP(response, request)
 
 		assertStatus(t, response.Code, http.StatusBadRequest)
 	})
@@ -69,9 +69,9 @@ func TestUserMiddleware(t *testing.T) {
 		request := httptest.NewRequest(http.MethodPost, "/users", bytes.NewReader(jsonPayload))
 		response := httptest.NewRecorder()
 
-		request.Header.Set("Content-Type", jsonContentType)
+		request.Header.Set("Content-Type", JSONContentType)
 
-		CreateUserMiddleware(&stubHandler).ServeHTTP(response, request)
+		UserMiddleware(&stubHandler).ServeHTTP(response, request)
 		want := RequestPayload{Email: "hello@test.com", Password: "abc"}
 
 		assertPayload(t, RequestPayload(stubHandler), want)

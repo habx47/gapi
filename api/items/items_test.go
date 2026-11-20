@@ -1,4 +1,4 @@
-package server
+package items
 
 import (
 	"bytes"
@@ -79,7 +79,7 @@ func TestGETStore(t *testing.T) {
 		store := StubStore{
 			items: items,
 		}
-		server := NewServer(&store)
+		server := NewItemsServer(&store)
 		request := httptest.NewRequest(http.MethodGet, "/items", nil)
 		response := httptest.NewRecorder()
 
@@ -100,7 +100,7 @@ func TestGETStore(t *testing.T) {
 		}
 		items := Items{"1": item}
 		store := StubStore{items: items, failure: true}
-		server := NewServer(&store)
+		server := NewItemsServer(&store)
 		request := httptest.NewRequest(http.MethodGet, "/items", nil)
 		response := httptest.NewRecorder()
 
@@ -117,7 +117,7 @@ func TestGETItem(t *testing.T) {
 		store := StubStore{
 			items: items,
 		}
-		server := NewServer(&store)
+		server := NewItemsServer(&store)
 		request := httptest.NewRequest(http.MethodGet, "/items/1", nil)
 		response := httptest.NewRecorder()
 
@@ -136,7 +136,7 @@ func TestGETItem(t *testing.T) {
 		store := StubStore{
 			items: items,
 		}
-		server := NewServer(&store)
+		server := NewItemsServer(&store)
 		request := httptest.NewRequest(http.MethodGet, "/items/2", nil)
 		response := httptest.NewRecorder()
 
@@ -151,7 +151,7 @@ func TestGETItem(t *testing.T) {
 			items:   items,
 			failure: true,
 		}
-		server := NewServer(&store)
+		server := NewItemsServer(&store)
 		request := httptest.NewRequest(http.MethodGet, "/items/1", nil)
 		response := httptest.NewRecorder()
 
@@ -168,7 +168,7 @@ func TestPOSTStore(t *testing.T) {
 
 		store := StubStore{items: Items{}}
 		updatedStore := Items{"1": Item{ID: 1, UserID: 10, Name: "item_one"}}
-		server := NewServer(&store)
+		server := NewItemsServer(&store)
 		request := httptest.NewRequest(http.MethodPost, "/items", bytes.NewReader(jsonBytes))
 		request.Header.Set("content-type", jsonContentType)
 		response := httptest.NewRecorder()
@@ -181,7 +181,7 @@ func TestPOSTStore(t *testing.T) {
 
 	t.Run("content-type: text/plain", func(t *testing.T) {
 		store := StubStore{}
-		server := NewServer(&store)
+		server := NewItemsServer(&store)
 		request := httptest.NewRequest(http.MethodPost, "/items", nil)
 		request.Header.Set("content-type", "text/plain")
 		response := httptest.NewRecorder()
@@ -196,7 +196,7 @@ func TestPOSTStore(t *testing.T) {
 		jsonBytes, _ := json.Marshal(payload)
 
 		store := StubStore{items: Items{}, failure: true}
-		server := NewServer(&store)
+		server := NewItemsServer(&store)
 		request := httptest.NewRequest(http.MethodPost, "/items", bytes.NewReader(jsonBytes))
 		request.Header.Set("content-type", jsonContentType)
 		response := httptest.NewRecorder()
@@ -211,7 +211,7 @@ func TestPOSTStore(t *testing.T) {
 		jsonBytes, _ := json.Marshal(payload)
 
 		store := StubStore{items: Items{}}
-		server := NewServer(&store)
+		server := NewItemsServer(&store)
 		request := httptest.NewRequest(http.MethodPost, "/items", bytes.NewReader(jsonBytes))
 		request.Header.Set("content-type", jsonContentType)
 		response := httptest.NewRecorder()
@@ -229,7 +229,7 @@ func TestPUTItem(t *testing.T) {
 
 		store := StubStore{items: Items{"1": Item{ID: 1, UserID: 10, Name: "item_one"}}}
 		updatedStore := StubStore{items: Items{"1": Item{ID: 1, UserID: 10, Name: "item_one_updated"}}}
-		server := NewServer(&store)
+		server := NewItemsServer(&store)
 		request := httptest.NewRequest(http.MethodPut, "/items/1", bytes.NewReader(jsonBytes))
 		request.Header.Set("content-type", jsonContentType)
 		response := httptest.NewRecorder()
@@ -247,7 +247,7 @@ func TestPUTItem(t *testing.T) {
 		store := StubStore{items: Items{"1": Item{
 			ID: 1, UserID: 10, Name: "item_one",
 		}}, failure: true}
-		server := NewServer(&store)
+		server := NewItemsServer(&store)
 		request := httptest.NewRequest(http.MethodPut, "/items/1", bytes.NewReader(jsonBytes))
 		request.Header.Set("content-type", jsonContentType)
 		response := httptest.NewRecorder()
@@ -262,7 +262,7 @@ func TestPUTItem(t *testing.T) {
 		jsonBytes, _ := json.Marshal(payload)
 
 		store := StubStore{items: Items{"1": Item{ID: 1, UserID: 10, Name: "item_one"}}}
-		server := NewServer(&store)
+		server := NewItemsServer(&store)
 		request := httptest.NewRequest(http.MethodPut, "/items/2", bytes.NewReader(jsonBytes))
 		request.Header.Set("content-type", jsonContentType)
 		response := httptest.NewRecorder()
@@ -283,7 +283,7 @@ func TestDELETEItem(t *testing.T) {
 		updatedStore := StubStore{items: Items{"1": Item{
 			ID: 1, UserID: 10, Name: "item_one",
 		}}}
-		server := NewServer(&store)
+		server := NewItemsServer(&store)
 		request := httptest.NewRequest(http.MethodDelete, "/items/2", nil)
 		response := httptest.NewRecorder()
 
@@ -297,7 +297,7 @@ func TestDELETEItem(t *testing.T) {
 		store := StubStore{items: Items{"1": Item{
 			ID: 1, UserID: 10, Name: "item_one",
 		}}}
-		server := NewServer(&store)
+		server := NewItemsServer(&store)
 		request := httptest.NewRequest(http.MethodDelete, "/items/2", nil)
 		response := httptest.NewRecorder()
 
@@ -310,7 +310,7 @@ func TestDELETEItem(t *testing.T) {
 		store := StubStore{items: Items{"1": Item{
 			ID: 1, UserID: 10, Name: "item_one",
 		}}, failure: true}
-		server := NewServer(&store)
+		server := NewItemsServer(&store)
 		request := httptest.NewRequest(http.MethodDelete, "/items/1", nil)
 		response := httptest.NewRecorder()
 

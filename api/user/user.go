@@ -8,7 +8,7 @@ import (
 	"github.com/habx47/gapi/password"
 )
 
-const jsonContentType = "application/json"
+const JSONContentType = "application/json"
 
 type User struct {
 	ID         int    `json:"id"`
@@ -30,7 +30,6 @@ type UserServer struct {
 
 func (u *UserServer) createUser(w http.ResponseWriter, r *http.Request) {
 	payload, _ := r.Context().Value(payload_key).(RequestPayload)
-
 	exists, err := u.store.CheckByEmail(payload.Email)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -58,12 +57,15 @@ func (u *UserServer) createUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", jsonContentType)
+	w.Header().Set("Content-Type", JSONContentType)
 	w.WriteHeader(http.StatusCreated)
 	responseErr := json.NewEncoder(w).Encode(createdUser)
 	if responseErr != nil {
 		log.Printf("error sending response: %v", responseErr)
 	}
+}
+
+func (u *UserServer) login(w http.ResponseWriter, r *http.Request) {
 }
 
 func NewUserServer(store UserStore) *UserServer {
@@ -72,6 +74,7 @@ func NewUserServer(store UserStore) *UserServer {
 
 	router := http.NewServeMux()
 	router.Handle("POST /", http.HandlerFunc(u.createUser))
+	router.Handle("POST /login", http.HandlerFunc(u.login))
 
 	u.Handler = router
 

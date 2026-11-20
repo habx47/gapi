@@ -61,7 +61,7 @@ func TestCreateUser(t *testing.T) {
 		}
 
 		assertStatus(t, response.Code, http.StatusCreated)
-		assertContentType(t, response, jsonContentType)
+		assertContentType(t, response, JSONContentType)
 		assertResponseUser(t, responseUser, ResponseUser{ID: 1, Email: TestEmail})
 	})
 
