@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	session "github.com/habx47/gapi/api/internal"
 	"github.com/habx47/gapi/api/items"
 	"github.com/habx47/gapi/api/user"
 )
@@ -17,6 +18,10 @@ type StubUserStore struct {
 
 type StubItemsStore struct {
 	items.ItemsStore
+}
+
+type StubSessionStore struct {
+	session.SessionStore
 }
 
 func (s *StubUserStore) Create(u user.User) (user.User, error) {
@@ -37,6 +42,7 @@ func TestRootHandler(t *testing.T) {
 	t.Run("success on POST /user", func(t *testing.T) {
 		stubUserStore := StubUserStore{}
 		stubItemsStore := StubItemsStore{}
+		stubSessionStore := StubSessionStore{}
 
 		payload := user.RequestPayload{
 			Email:    " Test@test.com ",
@@ -48,16 +54,16 @@ func TestRootHandler(t *testing.T) {
 		response := httptest.NewRecorder()
 		request.Header.Set("Content-Type", user.JSONContentType)
 
-		server := NewRootHandler(&stubUserStore, stubItemsStore)
+		server := NewRootHandler(&stubUserStore, &stubItemsStore, &stubSessionStore)
 		server.ServeHTTP(response, request)
 
-		assertStatus(t, response.Code, http.StatusCreated)
 		var responseUser ResponseUser
 		err := json.NewDecoder(response.Body).Decode(&responseUser)
 		if err != nil {
 			t.Fatalf("could not read response from the response: %v", err)
 		}
 
+		assertStatus(t, response.Code, http.StatusCreated)
 		assertContentType(t, response, user.JSONContentType)
 		assertResponseUser(t, responseUser, ResponseUser{ID: 1, Email: "test@test.com"})
 	})

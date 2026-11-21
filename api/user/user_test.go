@@ -7,7 +7,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
+	session "github.com/habx47/gapi/api/internal"
 	"github.com/habx47/gapi/password"
 )
 
@@ -26,19 +28,19 @@ type StubUserStore struct {
 	UserStore
 }
 
-func (s *StubUserStore) Create(u User) (User, error) {
-	if s.err {
+func (su *StubUserStore) Create(u User) (User, error) {
+	if su.err {
 		return User{}, errors.New("internal server error")
 	}
-	if s.exists {
+	if su.exists {
 		return User{}, EmailExistsErr
 	}
 	u.ID = 1
 	return u, nil
 }
 
-func (s *StubUserStore) GetByEmail(email string) (User, error) {
-	if s.invalidEmail {
+func (su *StubUserStore) GetByEmail(email string) (User, error) {
+	if su.invalidEmail {
 		return User{}, UserNotFoundErr
 	}
 
@@ -50,6 +52,19 @@ func (s *StubUserStore) GetByEmail(email string) (User, error) {
 	}, nil
 }
 
+type StubSessionStore struct {
+	session.SessionStore
+}
+
+func (ss *StubSessionStore) CreateSession(userID int, ttl time.Duration) (session.Session, error) {
+	return session.Session{
+		ID:        "generatedsessionid",
+		UserID:    1,
+		CreatedAt: time.Now(),
+		ExpiresAt: time.Now().Add(2 * time.Minute),
+	}, nil
+}
+
 type ResponseUser struct {
 	ID    int    `json:"id"`
 	Email string `json:"email"`
@@ -58,9 +73,10 @@ type ResponseUser struct {
 func TestCreateUser(t *testing.T) {
 	t.Run("success on creating user", func(t *testing.T) {
 		stubUserStore := StubUserStore{}
+		stubSessionStore := StubSessionStore{}
 		request := httptest.NewRequest(http.MethodPost, "/", nil)
 		response := httptest.NewRecorder()
-		server := NewUserServer(&stubUserStore)
+		server := NewUserServer(&stubUserStore, &stubSessionStore)
 
 		ctx := createContext(request, payload)
 
@@ -81,9 +97,10 @@ func TestCreateUser(t *testing.T) {
 		stubUserStore := StubUserStore{
 			exists: true,
 		}
+		stubSessionStore := StubSessionStore{}
 		request := httptest.NewRequest(http.MethodPost, "/", nil)
 		response := httptest.NewRecorder()
-		server := NewUserServer(&stubUserStore)
+		server := NewUserServer(&stubUserStore, &stubSessionStore)
 
 		ctx := createContext(request, payload)
 
@@ -96,9 +113,10 @@ func TestCreateUser(t *testing.T) {
 		stubUserStore := StubUserStore{
 			err: true,
 		}
+		stubSessionStore := StubSessionStore{}
 		request := httptest.NewRequest(http.MethodPost, "/", nil)
 		response := httptest.NewRecorder()
-		server := NewUserServer(&stubUserStore)
+		server := NewUserServer(&stubUserStore, &stubSessionStore)
 
 		ctx := createContext(request, payload)
 
@@ -111,13 +129,14 @@ func TestCreateUser(t *testing.T) {
 func TestLogin(t *testing.T) {
 	t.Run("wrong login credentials - email", func(t *testing.T) {
 		stubUserStore := StubUserStore{invalidEmail: true}
+		stubSessionStore := StubSessionStore{}
 		loginPayload := RequestPayload{
 			Email:    "test1@acme.com",
 			Password: "doesnotmatterhere",
 		}
 		request := httptest.NewRequest(http.MethodPost, "/login", nil)
 		response := httptest.NewRecorder()
-		server := NewUserServer(&stubUserStore)
+		server := NewUserServer(&stubUserStore, &stubSessionStore)
 
 		ctx := createContext(request, loginPayload)
 
@@ -128,19 +147,38 @@ func TestLogin(t *testing.T) {
 
 	t.Run("wrong login credentials - password", func(t *testing.T) {
 		stubUserStore := StubUserStore{}
+		stubSessionStore := StubSessionStore{}
 		loginPayload := RequestPayload{
 			Email:    TestEmail,
 			Password: "wrongpassword",
 		}
 		request := httptest.NewRequest(http.MethodPost, "/login", nil)
 		response := httptest.NewRecorder()
-		server := NewUserServer(&stubUserStore)
+		server := NewUserServer(&stubUserStore, &stubSessionStore)
 
 		ctx := createContext(request, loginPayload)
 
 		server.ServeHTTP(response, request.WithContext(ctx))
 
 		assertStatus(t, response.Code, http.StatusUnauthorized)
+	})
+
+	t.Run("success on login and session creation", func(t *testing.T) {
+		stubUserStore := StubUserStore{}
+		stubSessionStore := StubSessionStore{}
+		loginPayload := RequestPayload{
+			Email:    TestEmail,
+			Password: TestPassword,
+		}
+		request := httptest.NewRequest(http.MethodPost, "/login", nil)
+		response := httptest.NewRecorder()
+		server := NewUserServer(&stubUserStore, &stubSessionStore)
+
+		ctx := createContext(request, loginPayload)
+
+		server.ServeHTTP(response, request.WithContext(ctx))
+
+		assertStatus(t, response.Code, http.StatusNoContent)
 	})
 }
 

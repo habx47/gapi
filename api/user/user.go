@@ -5,7 +5,9 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"time"
 
+	session "github.com/habx47/gapi/api/internal"
 	"github.com/habx47/gapi/password"
 )
 
@@ -27,7 +29,8 @@ type UserStore interface {
 }
 
 type UserServer struct {
-	store UserStore
+	store        UserStore
+	sessionStore session.SessionStore
 	http.Handler
 }
 
@@ -83,11 +86,31 @@ func (u *UserServer) login(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
+
+	ttl := 24 * time.Hour
+	session, err := u.sessionStore.CreateSession(user.ID, ttl)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "session_id",
+		Value:    session.ID,
+		Path:     "/",
+		Expires:  session.ExpiresAt,
+		MaxAge:   int(ttl.Seconds()),
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	})
+	w.WriteHeader(http.StatusNoContent)
 }
 
-func NewUserServer(store UserStore) *UserServer {
+func NewUserServer(store UserStore, sessionStore session.SessionStore) *UserServer {
 	u := new(UserServer)
 	u.store = store
+	u.sessionStore = sessionStore
 
 	router := http.NewServeMux()
 	router.Handle("POST /", http.HandlerFunc(u.createUser))
