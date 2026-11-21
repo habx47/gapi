@@ -178,7 +178,17 @@ func TestLogin(t *testing.T) {
 
 		server.ServeHTTP(response, request.WithContext(ctx))
 
+		var sessionCookie *http.Cookie
+		for _, c := range response.Result().Cookies() {
+			if c.Name == "session_id" {
+				sessionCookie = c
+				break
+			}
+		}
+
 		assertStatus(t, response.Code, http.StatusNoContent)
+		assertSessionCookie(t, sessionCookie)
+		assertSessionCookieValue(t, sessionCookie.Value, "generatedsessionid")
 	})
 }
 
@@ -197,5 +207,19 @@ func assertResponseUser(t testing.TB, got, want ResponseUser) {
 	t.Helper()
 	if got != want {
 		t.Errorf("got: %+v as response, want: %+v", got, want)
+	}
+}
+
+func assertSessionCookie(t testing.TB, sessionCookie *http.Cookie) {
+	t.Helper()
+	if sessionCookie == nil {
+		t.Fatal("expected session_id cookie to be set, but none was found")
+	}
+}
+
+func assertSessionCookieValue(t testing.TB, got, want string) {
+	t.Helper()
+	if got != want {
+		t.Errorf("got: %v, want: %v", got, want)
 	}
 }
