@@ -105,7 +105,7 @@ func TestGETStore(t *testing.T) {
 
 		assertStatus(t, response.Code, http.StatusOK)
 		assertStoreState(t, got, items)
-		assertContentType(t, response, jsonContentType)
+		assertContentType(t, response, JSONContentType)
 	})
 
 	t.Run("server failure on fetching store", func(t *testing.T) {
@@ -144,7 +144,7 @@ func TestGETItem(t *testing.T) {
 
 		assertStatus(t, response.Code, http.StatusOK)
 		assertStoreState(t, got, want)
-		assertContentType(t, response, jsonContentType)
+		assertContentType(t, response, JSONContentType)
 	})
 
 	t.Run("non-existent key", func(t *testing.T) {
@@ -186,7 +186,7 @@ func TestPOSTStore(t *testing.T) {
 		updatedStore := Items{"1": Item{ID: 1, UserID: 10, Name: "item_one"}}
 		server := NewItemsServer(&store)
 		request := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(jsonBytes))
-		request.Header.Set("content-type", jsonContentType)
+		request.Header.Set("content-type", JSONContentType)
 		ctx := context.WithValue(request.Context(), sessionKey, stubSession)
 		response := httptest.NewRecorder()
 
@@ -215,7 +215,7 @@ func TestPOSTStore(t *testing.T) {
 		store := StubStore{items: Items{}, failure: true}
 		server := NewItemsServer(&store)
 		request := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(jsonBytes))
-		request.Header.Set("content-type", jsonContentType)
+		request.Header.Set("content-type", JSONContentType)
 		ctx := context.WithValue(request.Context(), sessionKey, stubSession)
 		response := httptest.NewRecorder()
 
@@ -231,7 +231,7 @@ func TestPOSTStore(t *testing.T) {
 		store := StubStore{items: Items{}}
 		server := NewItemsServer(&store)
 		request := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(jsonBytes))
-		request.Header.Set("content-type", jsonContentType)
+		request.Header.Set("content-type", JSONContentType)
 		response := httptest.NewRecorder()
 
 		server.ServeHTTP(response, request)
@@ -249,7 +249,7 @@ func TestPUTItem(t *testing.T) {
 		updatedStore := StubStore{items: Items{"1": Item{ID: 1, UserID: 10, Name: "item_one_updated"}}}
 		server := NewItemsServer(&store)
 		request := httptest.NewRequest(http.MethodPut, "/1", bytes.NewReader(jsonBytes))
-		request.Header.Set("content-type", jsonContentType)
+		request.Header.Set("content-type", JSONContentType)
 		ctx := context.WithValue(request.Context(), sessionKey, stubSession)
 		response := httptest.NewRecorder()
 
@@ -268,7 +268,7 @@ func TestPUTItem(t *testing.T) {
 		}}, failure: true}
 		server := NewItemsServer(&store)
 		request := httptest.NewRequest(http.MethodPut, "/1", bytes.NewReader(jsonBytes))
-		request.Header.Set("content-type", jsonContentType)
+		request.Header.Set("content-type", JSONContentType)
 		ctx := context.WithValue(request.Context(), sessionKey, stubSession)
 		response := httptest.NewRecorder()
 
@@ -284,7 +284,7 @@ func TestPUTItem(t *testing.T) {
 		store := StubStore{items: Items{"1": Item{ID: 1, UserID: 10, Name: "item_one"}}}
 		server := NewItemsServer(&store)
 		request := httptest.NewRequest(http.MethodPut, "/2", bytes.NewReader(jsonBytes))
-		request.Header.Set("content-type", jsonContentType)
+		request.Header.Set("content-type", JSONContentType)
 		ctx := context.WithValue(request.Context(), sessionKey, stubSession)
 		response := httptest.NewRecorder()
 
@@ -300,7 +300,7 @@ func TestPUTItem(t *testing.T) {
 		store := StubStore{items: Items{"1": Item{ID: 1, UserID: 10, Name: "item_one"}, "2": Item{ID: 2, UserID: 11, Name: "item_two"}}}
 		server := NewItemsServer(&store)
 		request := httptest.NewRequest(http.MethodPut, "/2", bytes.NewReader(jsonBytes))
-		request.Header.Set("content-type", jsonContentType)
+		request.Header.Set("content-type", JSONContentType)
 		ctx := context.WithValue(request.Context(), sessionKey, stubSession)
 		response := httptest.NewRecorder()
 

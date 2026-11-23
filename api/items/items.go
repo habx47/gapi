@@ -12,7 +12,7 @@ import (
 	session "github.com/habx47/gapi/api/internal"
 )
 
-const jsonContentType = "application/json"
+const JSONContentType = "application/json"
 
 var ForbiddenErr = errors.New("forbidden. not authorized")
 
@@ -46,7 +46,7 @@ func (s *ItemsServer) listItems(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("content-type", jsonContentType)
+	w.Header().Set("content-type", JSONContentType)
 	json.NewEncoder(w).Encode(items)
 }
 
@@ -88,7 +88,7 @@ func (s *ItemsServer) getItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	item := Items{key: value}
-	w.Header().Set("content-type", jsonContentType)
+	w.Header().Set("content-type", JSONContentType)
 	json.NewEncoder(w).Encode(item)
 }
 
@@ -139,7 +139,7 @@ func (s *ItemsServer) validateContentType(header string) error {
 	}
 
 	mediaType, _, err := mime.ParseMediaType(header)
-	if err != nil || mediaType != jsonContentType {
+	if err != nil || mediaType != JSONContentType {
 		return errors.New("Content-Type must be applicaton/json")
 	}
 	return nil

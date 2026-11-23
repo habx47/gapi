@@ -19,8 +19,8 @@ func NewRootHandler(userStore user.UserStore, itemsStore items.ItemsStore, sessi
 	router.Handle("/user", http.StripPrefix("/user", user.UserMiddleware(user.NewUserServer(userStore, sessionStore))))
 	router.Handle("/user/", http.StripPrefix("/user", user.UserMiddleware(user.NewUserServer(userStore, sessionStore))))
 
-	router.Handle("/items", http.StripPrefix("/items", items.NewItemsServer(itemsStore)))
-	router.Handle("/items/", http.StripPrefix("/items", items.NewItemsServer(itemsStore)))
+	router.Handle("/items", http.StripPrefix("/items", items.AuthMiddleware(sessionStore)(items.NewItemsServer(itemsStore))))
+	router.Handle("/items/", http.StripPrefix("/items", items.AuthMiddleware(sessionStore)(items.NewItemsServer(itemsStore))))
 
 	r.Handler = router
 
