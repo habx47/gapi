@@ -15,6 +15,9 @@ const sessionKey contextKey = "session"
 func AuthMiddleware(sessionStore session.SessionStore) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "" {
+				r.URL.Path = "/"
+			}
 			cookie, err := r.Cookie("session_id")
 			if err != nil {
 				w.WriteHeader(http.StatusUnauthorized)

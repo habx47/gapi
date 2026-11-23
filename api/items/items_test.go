@@ -2,6 +2,7 @@ package items
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -9,6 +10,9 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"testing"
+	"time"
+
+	session "github.com/habx47/gapi/api/internal"
 )
 
 type StubStore struct {
@@ -28,7 +32,6 @@ func (s *StubStore) InsertItems(value Item) error {
 		return errors.New("internal server errror")
 	}
 	value.ID = 1
-	value.UserID = 10
 	s.items["1"] = value
 	return nil
 }
@@ -44,7 +47,7 @@ func (s *StubStore) GetItem(id string) (Item, bool, error) {
 	return value, true, nil
 }
 
-func (s *StubStore) UpdateItem(key string, value string) (bool, error) {
+func (s *StubStore) UpdateItem(key string, value string, userID int) (bool, error) {
 	if s.failure {
 		return false, errors.New("internal server error")
 	}
@@ -52,20 +55,33 @@ func (s *StubStore) UpdateItem(key string, value string) (bool, error) {
 		return false, nil
 	}
 	item := s.items[key]
+	if item.UserID != userID {
+		return false, FrobiddenErr
+	}
 	item.Name = value
 	s.items[key] = item
 	return true, nil
 }
 
-func (s *StubStore) DeleteItem(key string) (bool, error) {
+func (s *StubStore) DeleteItem(key string, userID int) (bool, error) {
 	if s.failure {
 		return false, errors.New("internal server error")
 	}
 	if _, ok := s.items[key]; !ok {
 		return false, nil
 	}
+	if s.items[key].UserID != userID {
+		return false, FrobiddenErr
+	}
 	delete(s.items, key)
 	return true, nil
+}
+
+var stubSession = session.Session{
+	ID:        "session_id",
+	UserID:    10,
+	CreatedAt: time.Now(),
+	ExpiresAt: time.Now().Add(5 * time.Minute),
 }
 
 func TestGETStore(t *testing.T) {
@@ -80,7 +96,7 @@ func TestGETStore(t *testing.T) {
 			items: items,
 		}
 		server := NewItemsServer(&store)
-		request := httptest.NewRequest(http.MethodGet, "/items", nil)
+		request := httptest.NewRequest(http.MethodGet, "/", nil)
 		response := httptest.NewRecorder()
 
 		server.ServeHTTP(response, request)
@@ -101,7 +117,7 @@ func TestGETStore(t *testing.T) {
 		items := Items{"1": item}
 		store := StubStore{items: items, failure: true}
 		server := NewItemsServer(&store)
-		request := httptest.NewRequest(http.MethodGet, "/items", nil)
+		request := httptest.NewRequest(http.MethodGet, "/", nil)
 		response := httptest.NewRecorder()
 
 		server.ServeHTTP(response, request)
@@ -118,7 +134,7 @@ func TestGETItem(t *testing.T) {
 			items: items,
 		}
 		server := NewItemsServer(&store)
-		request := httptest.NewRequest(http.MethodGet, "/items/1", nil)
+		request := httptest.NewRequest(http.MethodGet, "/1", nil)
 		response := httptest.NewRecorder()
 
 		server.ServeHTTP(response, request)
@@ -137,7 +153,7 @@ func TestGETItem(t *testing.T) {
 			items: items,
 		}
 		server := NewItemsServer(&store)
-		request := httptest.NewRequest(http.MethodGet, "/items/2", nil)
+		request := httptest.NewRequest(http.MethodGet, "/2", nil)
 		response := httptest.NewRecorder()
 
 		server.ServeHTTP(response, request)
@@ -152,7 +168,7 @@ func TestGETItem(t *testing.T) {
 			failure: true,
 		}
 		server := NewItemsServer(&store)
-		request := httptest.NewRequest(http.MethodGet, "/items/1", nil)
+		request := httptest.NewRequest(http.MethodGet, "/1", nil)
 		response := httptest.NewRecorder()
 
 		server.ServeHTTP(response, request)
@@ -169,11 +185,12 @@ func TestPOSTStore(t *testing.T) {
 		store := StubStore{items: Items{}}
 		updatedStore := Items{"1": Item{ID: 1, UserID: 10, Name: "item_one"}}
 		server := NewItemsServer(&store)
-		request := httptest.NewRequest(http.MethodPost, "/items", bytes.NewReader(jsonBytes))
+		request := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(jsonBytes))
 		request.Header.Set("content-type", jsonContentType)
+		ctx := context.WithValue(request.Context(), sessionKey, stubSession)
 		response := httptest.NewRecorder()
 
-		server.ServeHTTP(response, request)
+		server.ServeHTTP(response, request.WithContext(ctx))
 
 		assertStatus(t, response.Code, http.StatusCreated)
 		assertStoreState(t, store.items, updatedStore)
@@ -182,7 +199,7 @@ func TestPOSTStore(t *testing.T) {
 	t.Run("content-type: text/plain", func(t *testing.T) {
 		store := StubStore{}
 		server := NewItemsServer(&store)
-		request := httptest.NewRequest(http.MethodPost, "/items", nil)
+		request := httptest.NewRequest(http.MethodPost, "/", nil)
 		request.Header.Set("content-type", "text/plain")
 		response := httptest.NewRecorder()
 
@@ -197,11 +214,12 @@ func TestPOSTStore(t *testing.T) {
 
 		store := StubStore{items: Items{}, failure: true}
 		server := NewItemsServer(&store)
-		request := httptest.NewRequest(http.MethodPost, "/items", bytes.NewReader(jsonBytes))
+		request := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(jsonBytes))
 		request.Header.Set("content-type", jsonContentType)
+		ctx := context.WithValue(request.Context(), sessionKey, stubSession)
 		response := httptest.NewRecorder()
 
-		server.ServeHTTP(response, request)
+		server.ServeHTTP(response, request.WithContext(ctx))
 
 		assertStatus(t, response.Code, http.StatusInternalServerError)
 	})
@@ -212,7 +230,7 @@ func TestPOSTStore(t *testing.T) {
 
 		store := StubStore{items: Items{}}
 		server := NewItemsServer(&store)
-		request := httptest.NewRequest(http.MethodPost, "/items", bytes.NewReader(jsonBytes))
+		request := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(jsonBytes))
 		request.Header.Set("content-type", jsonContentType)
 		response := httptest.NewRecorder()
 
@@ -230,11 +248,12 @@ func TestPUTItem(t *testing.T) {
 		store := StubStore{items: Items{"1": Item{ID: 1, UserID: 10, Name: "item_one"}}}
 		updatedStore := StubStore{items: Items{"1": Item{ID: 1, UserID: 10, Name: "item_one_updated"}}}
 		server := NewItemsServer(&store)
-		request := httptest.NewRequest(http.MethodPut, "/items/1", bytes.NewReader(jsonBytes))
+		request := httptest.NewRequest(http.MethodPut, "/1", bytes.NewReader(jsonBytes))
 		request.Header.Set("content-type", jsonContentType)
+		ctx := context.WithValue(request.Context(), sessionKey, stubSession)
 		response := httptest.NewRecorder()
 
-		server.ServeHTTP(response, request)
+		server.ServeHTTP(response, request.WithContext(ctx))
 
 		assertStatus(t, response.Code, http.StatusNoContent)
 		assertStoreState(t, store.items, updatedStore.items)
@@ -248,11 +267,12 @@ func TestPUTItem(t *testing.T) {
 			ID: 1, UserID: 10, Name: "item_one",
 		}}, failure: true}
 		server := NewItemsServer(&store)
-		request := httptest.NewRequest(http.MethodPut, "/items/1", bytes.NewReader(jsonBytes))
+		request := httptest.NewRequest(http.MethodPut, "/1", bytes.NewReader(jsonBytes))
 		request.Header.Set("content-type", jsonContentType)
+		ctx := context.WithValue(request.Context(), sessionKey, stubSession)
 		response := httptest.NewRecorder()
 
-		server.ServeHTTP(response, request)
+		server.ServeHTTP(response, request.WithContext(ctx))
 
 		assertStatus(t, response.Code, http.StatusInternalServerError)
 	})
@@ -263,13 +283,30 @@ func TestPUTItem(t *testing.T) {
 
 		store := StubStore{items: Items{"1": Item{ID: 1, UserID: 10, Name: "item_one"}}}
 		server := NewItemsServer(&store)
-		request := httptest.NewRequest(http.MethodPut, "/items/2", bytes.NewReader(jsonBytes))
+		request := httptest.NewRequest(http.MethodPut, "/2", bytes.NewReader(jsonBytes))
 		request.Header.Set("content-type", jsonContentType)
+		ctx := context.WithValue(request.Context(), sessionKey, stubSession)
 		response := httptest.NewRecorder()
 
-		server.ServeHTTP(response, request)
+		server.ServeHTTP(response, request.WithContext(ctx))
 
 		assertStatus(t, response.Code, http.StatusNotFound)
+	})
+
+	t.Run("forbidden", func(t *testing.T) {
+		payload := RequestPayload{Value: "item_one_updated"}
+		jsonBytes, _ := json.Marshal(payload)
+
+		store := StubStore{items: Items{"1": Item{ID: 1, UserID: 10, Name: "item_one"}, "2": Item{ID: 2, UserID: 11, Name: "item_two"}}}
+		server := NewItemsServer(&store)
+		request := httptest.NewRequest(http.MethodPut, "/2", bytes.NewReader(jsonBytes))
+		request.Header.Set("content-type", jsonContentType)
+		ctx := context.WithValue(request.Context(), sessionKey, stubSession)
+		response := httptest.NewRecorder()
+
+		server.ServeHTTP(response, request.WithContext(ctx))
+
+		assertStatus(t, response.Code, http.StatusForbidden)
 	})
 }
 
@@ -280,14 +317,15 @@ func TestDELETEItem(t *testing.T) {
 		}, "2": Item{
 			ID: 2, UserID: 12, Name: "item_two",
 		}}}
-		updatedStore := StubStore{items: Items{"1": Item{
-			ID: 1, UserID: 10, Name: "item_one",
+		updatedStore := StubStore{items: Items{"2": Item{
+			ID: 2, UserID: 12, Name: "item_two",
 		}}}
 		server := NewItemsServer(&store)
-		request := httptest.NewRequest(http.MethodDelete, "/items/2", nil)
+		request := httptest.NewRequest(http.MethodDelete, "/1", nil)
+		ctx := context.WithValue(request.Context(), sessionKey, stubSession)
 		response := httptest.NewRecorder()
 
-		server.ServeHTTP(response, request)
+		server.ServeHTTP(response, request.WithContext(ctx))
 
 		assertStatus(t, response.Code, http.StatusNoContent)
 		assertStoreState(t, store.items, updatedStore.items)
@@ -298,10 +336,11 @@ func TestDELETEItem(t *testing.T) {
 			ID: 1, UserID: 10, Name: "item_one",
 		}}}
 		server := NewItemsServer(&store)
-		request := httptest.NewRequest(http.MethodDelete, "/items/2", nil)
+		request := httptest.NewRequest(http.MethodDelete, "/2", nil)
+		ctx := context.WithValue(request.Context(), sessionKey, stubSession)
 		response := httptest.NewRecorder()
 
-		server.ServeHTTP(response, request)
+		server.ServeHTTP(response, request.WithContext(ctx))
 
 		assertStatus(t, response.Code, http.StatusNotFound)
 	})
@@ -311,12 +350,27 @@ func TestDELETEItem(t *testing.T) {
 			ID: 1, UserID: 10, Name: "item_one",
 		}}, failure: true}
 		server := NewItemsServer(&store)
-		request := httptest.NewRequest(http.MethodDelete, "/items/1", nil)
+		request := httptest.NewRequest(http.MethodDelete, "/1", nil)
+		ctx := context.WithValue(request.Context(), sessionKey, stubSession)
 		response := httptest.NewRecorder()
 
-		server.ServeHTTP(response, request)
+		server.ServeHTTP(response, request.WithContext(ctx))
 
 		assertStatus(t, response.Code, http.StatusInternalServerError)
+	})
+
+	t.Run("forbidden", func(t *testing.T) {
+		store := StubStore{items: Items{"1": Item{
+			ID: 1, UserID: 11, Name: "item_one",
+		}}}
+		server := NewItemsServer(&store)
+		request := httptest.NewRequest(http.MethodDelete, "/1", nil)
+		ctx := context.WithValue(request.Context(), sessionKey, stubSession)
+		response := httptest.NewRecorder()
+
+		server.ServeHTTP(response, request.WithContext(ctx))
+
+		assertStatus(t, response.Code, http.StatusForbidden)
 	})
 }
 

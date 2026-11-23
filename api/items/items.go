@@ -1,15 +1,20 @@
 package items
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
 	"mime"
 	"net/http"
 	"strings"
+
+	session "github.com/habx47/gapi/api/internal"
 )
 
 const jsonContentType = "application/json"
+
+var FrobiddenErr = errors.New("forbidden. not authorized")
 
 type Item struct {
 	ID     int
@@ -26,8 +31,8 @@ type ItemsStore interface {
 	GetItems() (Items, error)
 	InsertItems(value Item) error
 	GetItem(key string) (Item, bool, error)
-	UpdateItem(key string, value string) (bool, error)
-	DeleteItem(key string) (bool, error)
+	UpdateItem(key string, value string, userID int) (bool, error)
+	DeleteItem(key string, userID int) (bool, error)
 }
 
 type ItemsServer struct {
@@ -57,9 +62,11 @@ func (s *ItemsServer) createItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	session := getSession(r.Context())
+
 	item := Item{
-		Name: payload.Value,
-		//needs UserID extracted from r.Context().Value() and put here
+		Name:   payload.Value,
+		UserID: session.UserID,
 	}
 	insertErr := s.store.InsertItems(item)
 	if insertErr != nil {
@@ -70,7 +77,7 @@ func (s *ItemsServer) createItem(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *ItemsServer) getItem(w http.ResponseWriter, r *http.Request) {
-	key := strings.TrimPrefix(r.URL.Path, "/items/")
+	key := strings.TrimPrefix(r.URL.Path, "/")
 	value, found, err := s.store.GetItem(key)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -92,14 +99,19 @@ func (s *ItemsServer) updateItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	key := strings.TrimPrefix(r.URL.Path, "/items/")
+	key := strings.TrimPrefix(r.URL.Path, "/")
 	payload, err := s.validatePayload(r.Body)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	updated, err := s.store.UpdateItem(key, payload.Value)
+	session := getSession(r.Context())
+	updated, err := s.store.UpdateItem(key, payload.Value, session.UserID)
 	if err != nil {
+		if errors.Is(err, FrobiddenErr) {
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -111,9 +123,14 @@ func (s *ItemsServer) updateItem(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *ItemsServer) removeItem(w http.ResponseWriter, r *http.Request) {
-	key := strings.TrimPrefix(r.URL.Path, "/items/")
-	isDeleted, err := s.store.DeleteItem(key)
+	key := strings.TrimPrefix(r.URL.Path, "/")
+	session := getSession(r.Context())
+	isDeleted, err := s.store.DeleteItem(key, session.UserID)
 	if err != nil {
+		if errors.Is(err, FrobiddenErr) {
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -149,16 +166,21 @@ func (s *ItemsServer) validatePayload(body io.ReadCloser) (RequestPayload, error
 	return payload, nil
 }
 
+func getSession(ctx context.Context) session.Session {
+	session, _ := ctx.Value(sessionKey).(session.Session)
+	return session
+}
+
 func NewItemsServer(store ItemsStore) *ItemsServer {
 	s := new(ItemsServer)
 	s.store = store
 
 	router := http.NewServeMux()
-	router.Handle("GET /items", http.HandlerFunc(s.listItems))
-	router.Handle("GET /items/{id}", http.HandlerFunc(s.getItem))
-	router.Handle("POST /items", http.HandlerFunc(s.createItem))
-	router.Handle("PUT /items/{id}", http.HandlerFunc(s.updateItem))
-	router.Handle("DELETE /items/{id}", http.HandlerFunc(s.removeItem))
+	router.Handle("GET /", http.HandlerFunc(s.listItems))
+	router.Handle("GET /{id}", http.HandlerFunc(s.getItem))
+	router.Handle("POST /", http.HandlerFunc(s.createItem))
+	router.Handle("PUT /{id}", http.HandlerFunc(s.updateItem))
+	router.Handle("DELETE /{id}", http.HandlerFunc(s.removeItem))
 
 	s.Handler = router
 
