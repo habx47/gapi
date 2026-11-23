@@ -36,45 +36,45 @@ func (s *StubStore) InsertItems(value Item) error {
 	return nil
 }
 
-func (s *StubStore) GetItem(id string) (Item, bool, error) {
+func (s *StubStore) GetItem(id string) (Item, error) {
 	if s.failure {
-		return Item{}, false, errors.New("internal server error")
+		return Item{}, errors.New("internal server error")
 	}
 	value, ok := s.items[id]
 	if !ok {
-		return Item{}, false, nil
+		return Item{}, ForbiddenErr
 	}
-	return value, true, nil
+	return value, nil
 }
 
-func (s *StubStore) UpdateItem(key string, value string, userID int) (bool, error) {
+func (s *StubStore) UpdateItem(key string, value string, userID int) error {
 	if s.failure {
-		return false, errors.New("internal server error")
+		return errors.New("internal server error")
 	}
 	if _, ok := s.items[key]; !ok {
-		return false, nil
+		return ForbiddenErr
 	}
 	item := s.items[key]
 	if item.UserID != userID {
-		return false, FrobiddenErr
+		return ForbiddenErr
 	}
 	item.Name = value
 	s.items[key] = item
-	return true, nil
+	return nil
 }
 
-func (s *StubStore) DeleteItem(key string, userID int) (bool, error) {
+func (s *StubStore) DeleteItem(key string, userID int) error {
 	if s.failure {
-		return false, errors.New("internal server error")
+		return errors.New("internal server error")
 	}
 	if _, ok := s.items[key]; !ok {
-		return false, nil
+		return ForbiddenErr
 	}
 	if s.items[key].UserID != userID {
-		return false, FrobiddenErr
+		return ForbiddenErr
 	}
 	delete(s.items, key)
-	return true, nil
+	return nil
 }
 
 var stubSession = session.Session{
@@ -158,7 +158,7 @@ func TestGETItem(t *testing.T) {
 
 		server.ServeHTTP(response, request)
 
-		assertStatus(t, response.Code, http.StatusNotFound)
+		assertStatus(t, response.Code, http.StatusForbidden)
 	})
 
 	t.Run("server failure on fetching item", func(t *testing.T) {
@@ -290,10 +290,10 @@ func TestPUTItem(t *testing.T) {
 
 		server.ServeHTTP(response, request.WithContext(ctx))
 
-		assertStatus(t, response.Code, http.StatusNotFound)
+		assertStatus(t, response.Code, http.StatusForbidden)
 	})
 
-	t.Run("forbidden", func(t *testing.T) {
+	t.Run("forbidden - useID doesn't match", func(t *testing.T) {
 		payload := RequestPayload{Value: "item_one_updated"}
 		jsonBytes, _ := json.Marshal(payload)
 
@@ -342,7 +342,7 @@ func TestDELETEItem(t *testing.T) {
 
 		server.ServeHTTP(response, request.WithContext(ctx))
 
-		assertStatus(t, response.Code, http.StatusNotFound)
+		assertStatus(t, response.Code, http.StatusForbidden)
 	})
 
 	t.Run("internal server error", func(t *testing.T) {
@@ -359,7 +359,7 @@ func TestDELETEItem(t *testing.T) {
 		assertStatus(t, response.Code, http.StatusInternalServerError)
 	})
 
-	t.Run("forbidden", func(t *testing.T) {
+	t.Run("forbidden - useID does not match", func(t *testing.T) {
 		store := StubStore{items: Items{"1": Item{
 			ID: 1, UserID: 11, Name: "item_one",
 		}}}

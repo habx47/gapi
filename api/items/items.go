@@ -14,7 +14,7 @@ import (
 
 const jsonContentType = "application/json"
 
-var FrobiddenErr = errors.New("forbidden. not authorized")
+var ForbiddenErr = errors.New("forbidden. not authorized")
 
 type Item struct {
 	ID     int
@@ -30,9 +30,9 @@ type Items map[string]Item
 type ItemsStore interface {
 	GetItems() (Items, error)
 	InsertItems(value Item) error
-	GetItem(key string) (Item, bool, error)
-	UpdateItem(key string, value string, userID int) (bool, error)
-	DeleteItem(key string, userID int) (bool, error)
+	GetItem(key string) (Item, error)
+	UpdateItem(key string, value string, userID int) error
+	DeleteItem(key string, userID int) error
 }
 
 type ItemsServer struct {
@@ -78,13 +78,13 @@ func (s *ItemsServer) createItem(w http.ResponseWriter, r *http.Request) {
 
 func (s *ItemsServer) getItem(w http.ResponseWriter, r *http.Request) {
 	key := strings.TrimPrefix(r.URL.Path, "/")
-	value, found, err := s.store.GetItem(key)
+	value, err := s.store.GetItem(key)
 	if err != nil {
+		if errors.Is(err, ForbiddenErr) {
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
 		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	if !found {
-		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 	item := Items{key: value}
@@ -106,17 +106,13 @@ func (s *ItemsServer) updateItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	session := getSession(r.Context())
-	updated, err := s.store.UpdateItem(key, payload.Value, session.UserID)
-	if err != nil {
-		if errors.Is(err, FrobiddenErr) {
+	updateErr := s.store.UpdateItem(key, payload.Value, session.UserID)
+	if updateErr != nil {
+		if errors.Is(updateErr, ForbiddenErr) {
 			w.WriteHeader(http.StatusForbidden)
 			return
 		}
 		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	if !updated {
-		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -125,17 +121,13 @@ func (s *ItemsServer) updateItem(w http.ResponseWriter, r *http.Request) {
 func (s *ItemsServer) removeItem(w http.ResponseWriter, r *http.Request) {
 	key := strings.TrimPrefix(r.URL.Path, "/")
 	session := getSession(r.Context())
-	isDeleted, err := s.store.DeleteItem(key, session.UserID)
+	err := s.store.DeleteItem(key, session.UserID)
 	if err != nil {
-		if errors.Is(err, FrobiddenErr) {
+		if errors.Is(err, ForbiddenErr) {
 			w.WriteHeader(http.StatusForbidden)
 			return
 		}
 		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	if !isDeleted {
-		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
