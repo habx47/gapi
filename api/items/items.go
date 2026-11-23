@@ -154,11 +154,11 @@ func NewItemsServer(store ItemsStore) *ItemsServer {
 	s.store = store
 
 	router := http.NewServeMux()
-	router.Handle("GET /", http.HandlerFunc(s.listItems))
-	router.Handle("GET /{id}", http.HandlerFunc(s.getItem))
-	router.Handle("POST /", http.HandlerFunc(s.createItem))
-	router.Handle("PUT /{id}", http.HandlerFunc(s.updateItem))
-	router.Handle("DELETE /{id}", http.HandlerFunc(s.removeItem))
+	router.Handle("GET /items", http.HandlerFunc(s.listItems))
+	router.Handle("GET /items/{id}", http.HandlerFunc(s.getItem))
+	router.Handle("POST /items", http.HandlerFunc(s.createItem))
+	router.Handle("PUT /items/{id}", http.HandlerFunc(s.updateItem))
+	router.Handle("DELETE /items/{id}", http.HandlerFunc(s.removeItem))
 
 	s.Handler = router
 
