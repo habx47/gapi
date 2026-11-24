@@ -30,9 +30,9 @@ func (imu *IMUserStore) Create(u User) (User, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
 
-	_, err := imu.checkEmailExists(u.Email)
-	if err != nil {
-		return User{}, err
+	_, exists := imu.checkEmailExists(u.Email)
+	if exists {
+		return User{}, EmailExistsErr
 	}
 
 	u.ID = imu.nextID
@@ -43,39 +43,30 @@ func (imu *IMUserStore) Create(u User) (User, error) {
 	return u, nil
 }
 
-func (imu *IMUserStore) getByID(id int) (User, error) {
-	imu.mu.Lock()
-	defer imu.mu.Unlock()
-
+func (imu *IMUserStore) getByID(id int) (User, bool) {
 	user, ok := imu.store[id]
-	if !ok {
-		return User{}, UserNotFoundErr
-	}
-
-	return user, nil
+	return user, ok
 }
 
 func (imu *IMUserStore) GetByEmail(email string) (User, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
 
-	id, err := imu.checkEmailExists(email)
-	if err == nil {
+	id, exists := imu.checkEmailExists(email)
+	if !exists {
 		return User{}, UserNotFoundErr
 	}
 
-	user, err := imu.getByID(id)
-	if err != nil {
-		return User{}, UserNotFoundErr
+	user, exists := imu.getByID(id)
+	//if user does not exist here, means store and emailToID are out of sync
+	if !exists {
+		return User{}, errors.New("store and emailToID are out of sync")
 	}
 
 	return user, nil
 }
 
-func (imu *IMUserStore) checkEmailExists(email string) (int, error) {
+func (imu *IMUserStore) checkEmailExists(email string) (int, bool) {
 	id, ok := imu.emailToID[email]
-	if !ok {
-		return id, nil
-	}
-	return id, EmailExistsErr
+	return id, ok
 }
