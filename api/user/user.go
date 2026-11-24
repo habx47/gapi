@@ -7,30 +7,15 @@ import (
 	"net/http"
 	"time"
 
-	session "github.com/habx47/gapi/api/internal"
 	"github.com/habx47/gapi/password"
+	"github.com/habx47/gapi/store"
 )
 
 const JSONContentType = "application/json"
 
-var EmailExistsErr = errors.New("email already exists")
-var UserNotFoundErr = errors.New("user not found")
-
-type User struct {
-	ID         int    `json:"id"`
-	Email      string `json:"email"`
-	PasswdHash []byte `json:"-"`
-}
-
-type UserStore interface {
-	Create(u User) (User, error)
-	GetByID(id int) (User, error)
-	GetByEmail(email string) (User, error)
-}
-
 type UserServer struct {
-	store        UserStore
-	sessionStore session.SessionStore
+	store        store.UserStore
+	sessionStore store.SessionStore
 	http.Handler
 }
 
@@ -43,14 +28,14 @@ func (u *UserServer) createUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user := User{
+	user := store.User{
 		Email:      payload.Email,
 		PasswdHash: []byte(hashedPassword),
 	}
 
 	createdUser, err := u.store.Create(user)
 	if err != nil {
-		if errors.Is(err, EmailExistsErr) {
+		if errors.Is(err, store.EmailExistsErr) {
 			w.WriteHeader(http.StatusConflict)
 			return
 		}
@@ -70,7 +55,7 @@ func (u *UserServer) login(w http.ResponseWriter, r *http.Request) {
 	payload, _ := r.Context().Value(payload_key).(RequestPayload)
 	user, err := u.store.GetByEmail(payload.Email)
 	if err != nil {
-		if errors.Is(err, UserNotFoundErr) {
+		if errors.Is(err, store.UserNotFoundErr) {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
@@ -107,7 +92,7 @@ func (u *UserServer) login(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func NewUserServer(store UserStore, sessionStore session.SessionStore) *UserServer {
+func NewUserServer(store store.UserStore, sessionStore store.SessionStore) *UserServer {
 	u := new(UserServer)
 	u.store = store
 	u.sessionStore = sessionStore

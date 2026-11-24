@@ -8,16 +8,16 @@ import (
 	"testing"
 	"time"
 
-	session "github.com/habx47/gapi/api/internal"
 	"github.com/habx47/gapi/api/items"
 	"github.com/habx47/gapi/api/user"
+	"github.com/habx47/gapi/store"
 )
 
 type StubUserStore struct {
-	user.UserStore
+	store.UserStore
 }
 
-func (s *StubUserStore) Create(u user.User) (user.User, error) {
+func (s *StubUserStore) Create(u store.User) (store.User, error) {
 	u.ID = 1
 	return u, nil
 }
@@ -27,22 +27,22 @@ func (s *StubUserStore) CheckByEmail(email string) (bool, error) {
 }
 
 type StubItemsStore struct {
-	item items.Item
-	items.ItemsStore
+	item store.Item
+	store.ItemsStore
 }
 
-func (s *StubItemsStore) InsertItems(item items.Item) error {
+func (s *StubItemsStore) InsertItems(item store.Item) error {
 	item.ID = 1
 	s.item = item
 	return nil
 }
 
 type StubSessionStore struct {
-	session.SessionStore
+	store.SessionStore
 }
 
-func (s *StubSessionStore) GetSession(sessionID string) (session.Session, error) {
-	return session.Session{
+func (s *StubSessionStore) GetSession(sessionID string) (store.Session, error) {
+	return store.Session{
 		ID:        "stub_session_id",
 		UserID:    1,
 		CreatedAt: time.Now(),
@@ -107,7 +107,7 @@ func TestRootHandler(t *testing.T) {
 		server.ServeHTTP(response, request)
 
 		assertStatus(t, response.Code, http.StatusCreated)
-		assertItem(t, stubItemsStore.item, items.Item{ID: 1, UserID: 1, Name: "item_one"})
+		assertItem(t, stubItemsStore.item, store.Item{ID: 1, UserID: 1, Name: "item_one"})
 	})
 }
 
@@ -132,7 +132,7 @@ func assertResponseUser(t testing.TB, got, want ResponseUser) {
 	}
 }
 
-func assertItem(t testing.TB, got, want items.Item) {
+func assertItem(t testing.TB, got, want store.Item) {
 	t.Helper()
 	if got != want {
 		t.Errorf("got: %+v, want: %+v", got, want)

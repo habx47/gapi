@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	session "github.com/habx47/gapi/api/internal"
 	"github.com/habx47/gapi/password"
+	"github.com/habx47/gapi/store"
 )
 
 const TestEmail = "test@test.com"
@@ -25,27 +25,27 @@ type StubUserStore struct {
 	err          bool
 	exists       bool
 	invalidEmail bool
-	UserStore
+	store.UserStore
 }
 
-func (su *StubUserStore) Create(u User) (User, error) {
+func (su *StubUserStore) Create(u store.User) (store.User, error) {
 	if su.err {
-		return User{}, errors.New("internal server error")
+		return store.User{}, errors.New("internal server error")
 	}
 	if su.exists {
-		return User{}, EmailExistsErr
+		return store.User{}, store.EmailExistsErr
 	}
 	u.ID = 1
 	return u, nil
 }
 
-func (su *StubUserStore) GetByEmail(email string) (User, error) {
+func (su *StubUserStore) GetByEmail(email string) (store.User, error) {
 	if su.invalidEmail {
-		return User{}, UserNotFoundErr
+		return store.User{}, store.UserNotFoundErr
 	}
 
 	passwordHash, _ := password.Hash(TestPassword)
-	return User{
+	return store.User{
 		ID:         1,
 		Email:      TestEmail,
 		PasswdHash: []byte(passwordHash),
@@ -53,11 +53,11 @@ func (su *StubUserStore) GetByEmail(email string) (User, error) {
 }
 
 type StubSessionStore struct {
-	session.SessionStore
+	store.SessionStore
 }
 
-func (ss *StubSessionStore) CreateSession(userID int, ttl time.Duration) (session.Session, error) {
-	return session.Session{
+func (ss *StubSessionStore) CreateSession(userID int, ttl time.Duration) (store.Session, error) {
+	return store.Session{
 		ID:        "generatedsessionid",
 		UserID:    1,
 		CreatedAt: time.Now(),

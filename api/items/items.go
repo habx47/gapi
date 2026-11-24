@@ -9,34 +9,17 @@ import (
 	"net/http"
 	"strings"
 
-	session "github.com/habx47/gapi/api/internal"
+	"github.com/habx47/gapi/store"
 )
 
 const JSONContentType = "application/json"
 
-var ForbiddenErr = errors.New("forbidden. not authorized")
-
-type Item struct {
-	ID     int
-	UserID int
-	Name   string
-}
-
 type RequestPayload struct {
 	Value string `json:"value"`
 }
-type Items map[string]Item
-
-type ItemsStore interface {
-	GetItems() (Items, error)
-	InsertItems(value Item) error
-	GetItem(key string) (Item, error)
-	UpdateItem(key string, value string, userID int) error
-	DeleteItem(key string, userID int) error
-}
 
 type ItemsServer struct {
-	store ItemsStore
+	store store.ItemsStore
 	http.Handler
 }
 
@@ -64,7 +47,7 @@ func (s *ItemsServer) createItem(w http.ResponseWriter, r *http.Request) {
 
 	session := getSession(r.Context())
 
-	item := Item{
+	item := store.Item{
 		Name:   payload.Value,
 		UserID: session.UserID,
 	}
@@ -80,14 +63,14 @@ func (s *ItemsServer) getItem(w http.ResponseWriter, r *http.Request) {
 	key := strings.TrimPrefix(r.URL.Path, "/")
 	value, err := s.store.GetItem(key)
 	if err != nil {
-		if errors.Is(err, ForbiddenErr) {
+		if errors.Is(err, store.ForbiddenErr) {
 			w.WriteHeader(http.StatusForbidden)
 			return
 		}
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	item := Items{key: value}
+	item := store.Items{key: value}
 	w.Header().Set("content-type", JSONContentType)
 	json.NewEncoder(w).Encode(item)
 }
@@ -108,7 +91,7 @@ func (s *ItemsServer) updateItem(w http.ResponseWriter, r *http.Request) {
 	session := getSession(r.Context())
 	updateErr := s.store.UpdateItem(key, payload.Value, session.UserID)
 	if updateErr != nil {
-		if errors.Is(updateErr, ForbiddenErr) {
+		if errors.Is(updateErr, store.ForbiddenErr) {
 			w.WriteHeader(http.StatusForbidden)
 			return
 		}
@@ -123,7 +106,7 @@ func (s *ItemsServer) removeItem(w http.ResponseWriter, r *http.Request) {
 	session := getSession(r.Context())
 	err := s.store.DeleteItem(key, session.UserID)
 	if err != nil {
-		if errors.Is(err, ForbiddenErr) {
+		if errors.Is(err, store.ForbiddenErr) {
 			w.WriteHeader(http.StatusForbidden)
 			return
 		}
@@ -158,12 +141,12 @@ func (s *ItemsServer) validatePayload(body io.ReadCloser) (RequestPayload, error
 	return payload, nil
 }
 
-func getSession(ctx context.Context) session.Session {
-	session, _ := ctx.Value(sessionKey).(session.Session)
+func getSession(ctx context.Context) store.Session {
+	session, _ := ctx.Value(sessionKey).(store.Session)
 	return session
 }
 
-func NewItemsServer(store ItemsStore) *ItemsServer {
+func NewItemsServer(store store.ItemsStore) *ItemsServer {
 	s := new(ItemsServer)
 	s.store = store
 

@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"net/http"
 
-	session "github.com/habx47/gapi/api/internal"
+	"github.com/habx47/gapi/store"
 )
 
 type contextKey string
 
 const sessionKey contextKey = "session"
 
-func AuthMiddleware(sessionStore session.SessionStore) func(http.Handler) http.Handler {
+func AuthMiddleware(sessionStore store.SessionStore) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == "" {

@@ -6,25 +6,25 @@ import (
 	"testing"
 	"time"
 
-	session "github.com/habx47/gapi/api/internal"
+	"github.com/habx47/gapi/store"
 )
 
 type StubSessionStore struct {
 	expired bool
-	store   map[string]session.Session
-	session.SessionStore
+	store   map[string]store.Session
+	store.SessionStore
 }
 
-func (ss *StubSessionStore) GetSession(sessionID string) (session.Session, error) {
+func (ss *StubSessionStore) GetSession(sessionID string) (store.Session, error) {
 	if ss.expired {
-		return session.Session{
+		return store.Session{
 			ID:        "stub_session_id",
 			UserID:    1,
 			CreatedAt: time.Now(),
 			ExpiresAt: time.Now(),
 		}, nil
 	}
-	return session.Session{
+	return store.Session{
 		ID:        "stub_session_id",
 		UserID:    1,
 		CreatedAt: time.Now(),
@@ -42,7 +42,7 @@ type StubHandler struct {
 }
 
 func (sh *StubHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	session, _ := r.Context().Value(sessionKey).(session.Session)
+	session, _ := r.Context().Value(sessionKey).(store.Session)
 	sh.ID = session.ID
 	sh.UserID = session.UserID
 }

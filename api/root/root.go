@@ -3,16 +3,16 @@ package root
 import (
 	"net/http"
 
-	session "github.com/habx47/gapi/api/internal"
 	"github.com/habx47/gapi/api/items"
 	"github.com/habx47/gapi/api/user"
+	"github.com/habx47/gapi/store"
 )
 
 type Root struct {
 	http.Handler
 }
 
-func NewRootHandler(userStore user.UserStore, itemsStore items.ItemsStore, sessionStore session.SessionStore) *Root {
+func NewRootHandler(userStore store.UserStore, itemsStore store.ItemsStore, sessionStore store.SessionStore) *Root {
 	r := new(Root)
 
 	router := http.NewServeMux()
