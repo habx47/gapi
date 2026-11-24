@@ -2,6 +2,8 @@ package store
 
 import (
 	"errors"
+	"strconv"
+	"sync"
 	"time"
 )
 
@@ -22,4 +24,44 @@ type SessionStore interface {
 	CreateSession(userID int, ttl time.Duration) (Session, error)
 	GetSession(sessionID string) (Session, error)
 	DeleteSession(sessionID string) error
+}
+
+type IMSessionStore struct {
+	store  map[string]Session
+	nextID int
+	mu     sync.Mutex
+}
+
+func (ims *IMSessionStore) CreateSession(userID int, ttl time.Duration) (Session, error) {
+	ims.mu.Lock()
+	defer ims.mu.Unlock()
+
+	id := strconv.Itoa(ims.nextID)
+	session := Session{
+		ID:        id,
+		UserID:    userID,
+		CreatedAt: time.Now(),
+		ExpiresAt: time.Now().Add(ttl),
+	}
+	ims.store[id] = session
+	ims.nextID++
+
+	return session, nil
+}
+
+func (ims *IMSessionStore) GetSession(sessionID string) (Session, error) {
+	session, ok := ims.store[sessionID]
+	if !ok {
+		return Session{}, SessionNotFoundErr
+	}
+
+	return session, nil
+}
+
+func (ims *IMSessionStore) DeleteSession(sessionID string) error {
+	if _, ok := ims.store[sessionID]; !ok {
+		return errors.New("could not delete. session not found")
+	}
+	delete(ims.store, sessionID)
+	return nil
 }

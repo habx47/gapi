@@ -25,7 +25,12 @@ func AuthMiddleware(sessionStore store.SessionStore) func(http.Handler) http.Han
 			}
 
 			session, err := sessionStore.GetSession(cookie.Value)
-			if err != nil || session.IsExpired() {
+			if err != nil {
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+
+			if session.IsExpired() {
 				err := sessionStore.DeleteSession(cookie.Value)
 				if err != nil {
 					fmt.Printf("error deleting expired session with id: %v", session.ID)
