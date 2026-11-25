@@ -7,6 +7,8 @@ import (
 
 var EmailExistsErr = errors.New("email already exists")
 var UserNotFoundErr = errors.New("user not found")
+var UninitializedStoreErr = errors.New("required store[s] not initialized")
+var StoreSyncErr = errors.New("store and emailToID are out of sync")
 
 type User struct {
 	ID         int    `json:"id"`
@@ -32,7 +34,7 @@ func (imu *IMUserStore) Create(u User) (User, error) {
 
 	storeInitialized := imu.checkStoreInitilaization()
 	if !storeInitialized {
-		return User{}, errors.New("required store[s] not initialized")
+		return User{}, UninitializedStoreErr
 	}
 
 	_, exists := imu.checkEmailExists(u.Email)
@@ -59,7 +61,7 @@ func (imu *IMUserStore) GetByEmail(email string) (User, error) {
 
 	storeInitialized := imu.checkStoreInitilaization()
 	if !storeInitialized {
-		return User{}, errors.New("required store[s] not initialized")
+		return User{}, UninitializedStoreErr
 	}
 
 	id, exists := imu.checkEmailExists(email)
@@ -68,9 +70,9 @@ func (imu *IMUserStore) GetByEmail(email string) (User, error) {
 	}
 
 	user, exists := imu.getByID(id)
-	//if user does not exist here, means store and emailToID are out of sync
+	//if user does not exist here, it means store and emailToID are out of sync
 	if !exists {
-		return User{}, errors.New("store and emailToID are out of sync")
+		return User{}, StoreSyncErr
 	}
 
 	return user, nil
