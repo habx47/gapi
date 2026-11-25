@@ -32,11 +32,11 @@ func (s *StubStore) InsertItems(value store.Item) error {
 		return errors.New("internal server errror")
 	}
 	value.ID = 1
-	s.items["1"] = value
+	s.items[1] = value
 	return nil
 }
 
-func (s *StubStore) GetItem(id string) (store.Item, error) {
+func (s *StubStore) GetItem(id int) (store.Item, error) {
 	if s.failure {
 		return store.Item{}, errors.New("internal server error")
 	}
@@ -47,7 +47,7 @@ func (s *StubStore) GetItem(id string) (store.Item, error) {
 	return value, nil
 }
 
-func (s *StubStore) UpdateItem(key string, value string, userID int) error {
+func (s *StubStore) UpdateItem(key int, value string, userID int) error {
 	if s.failure {
 		return errors.New("internal server error")
 	}
@@ -63,7 +63,7 @@ func (s *StubStore) UpdateItem(key string, value string, userID int) error {
 	return nil
 }
 
-func (s *StubStore) DeleteItem(key string, userID int) error {
+func (s *StubStore) DeleteItem(key int, userID int) error {
 	if s.failure {
 		return errors.New("internal server error")
 	}
@@ -91,7 +91,7 @@ func TestGETStore(t *testing.T) {
 			UserID: 10,
 			Name:   "item_one",
 		}
-		items := store.Items{"1": item}
+		items := store.Items{1: item}
 		store := StubStore{
 			items: items,
 		}
@@ -114,7 +114,7 @@ func TestGETStore(t *testing.T) {
 			UserID: 10,
 			Name:   "item_one",
 		}
-		items := store.Items{"1": item}
+		items := store.Items{1: item}
 		store := StubStore{items: items, failure: true}
 		server := NewItemsServer(&store)
 		request := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -128,8 +128,8 @@ func TestGETStore(t *testing.T) {
 
 func TestGETItem(t *testing.T) {
 	t.Run("success on fetching an item", func(t *testing.T) {
-		items := store.Items{"1": store.Item{ID: 1, UserID: 10, Name: "item_one"},
-			"2": store.Item{ID: 2, UserID: 12, Name: "item_two"}}
+		items := store.Items{1: store.Item{ID: 1, UserID: 10, Name: "item_one"},
+			2: store.Item{ID: 2, UserID: 12, Name: "item_two"}}
 		stubStore := StubStore{
 			items: items,
 		}
@@ -140,7 +140,7 @@ func TestGETItem(t *testing.T) {
 		server.ServeHTTP(response, request)
 
 		got := getItemsFromResponse(t, response.Body)
-		want := store.Items{"1": store.Item{ID: 1, UserID: 10, Name: "item_one"}}
+		want := store.Items{1: store.Item{ID: 1, UserID: 10, Name: "item_one"}}
 
 		assertStatus(t, response.Code, http.StatusOK)
 		assertStoreState(t, got, want)
@@ -148,7 +148,7 @@ func TestGETItem(t *testing.T) {
 	})
 
 	t.Run("non-existent key", func(t *testing.T) {
-		items := store.Items{"1": store.Item{ID: 1, UserID: 10, Name: "item_one"}}
+		items := store.Items{1: store.Item{ID: 1, UserID: 10, Name: "item_one"}}
 		store := StubStore{
 			items: items,
 		}
@@ -162,7 +162,7 @@ func TestGETItem(t *testing.T) {
 	})
 
 	t.Run("server failure on fetching item", func(t *testing.T) {
-		items := store.Items{"1": store.Item{ID: 1, UserID: 10, Name: "item_one"}}
+		items := store.Items{1: store.Item{ID: 1, UserID: 10, Name: "item_one"}}
 		store := StubStore{
 			items:   items,
 			failure: true,
@@ -183,7 +183,7 @@ func TestPOSTStore(t *testing.T) {
 		jsonBytes, _ := json.Marshal(payload)
 
 		stubStore := StubStore{items: store.Items{}}
-		updatedStore := store.Items{"1": store.Item{ID: 1, UserID: 10, Name: "item_one"}}
+		updatedStore := store.Items{1: store.Item{ID: 1, UserID: 10, Name: "item_one"}}
 		server := NewItemsServer(&stubStore)
 		request := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(jsonBytes))
 		request.Header.Set("content-type", JSONContentType)
@@ -245,8 +245,8 @@ func TestPUTItem(t *testing.T) {
 		payload := RequestPayload{Value: "item_one_updated"}
 		jsonBytes, _ := json.Marshal(payload)
 
-		stubStore := StubStore{items: store.Items{"1": store.Item{ID: 1, UserID: 10, Name: "item_one"}}}
-		updatedStore := StubStore{items: store.Items{"1": store.Item{ID: 1, UserID: 10, Name: "item_one_updated"}}}
+		stubStore := StubStore{items: store.Items{1: store.Item{ID: 1, UserID: 10, Name: "item_one"}}}
+		updatedStore := StubStore{items: store.Items{1: store.Item{ID: 1, UserID: 10, Name: "item_one_updated"}}}
 		server := NewItemsServer(&stubStore)
 		request := httptest.NewRequest(http.MethodPut, "/1", bytes.NewReader(jsonBytes))
 		request.Header.Set("content-type", JSONContentType)
@@ -263,7 +263,7 @@ func TestPUTItem(t *testing.T) {
 		payload := RequestPayload{Value: "item_one_updated"}
 		jsonBytes, _ := json.Marshal(payload)
 
-		store := StubStore{items: store.Items{"1": store.Item{
+		store := StubStore{items: store.Items{1: store.Item{
 			ID: 1, UserID: 10, Name: "item_one",
 		}}, failure: true}
 		server := NewItemsServer(&store)
@@ -281,7 +281,7 @@ func TestPUTItem(t *testing.T) {
 		payload := RequestPayload{Value: "item_one_updated"}
 		jsonBytes, _ := json.Marshal(payload)
 
-		store := StubStore{items: store.Items{"1": store.Item{ID: 1, UserID: 10, Name: "item_one"}}}
+		store := StubStore{items: store.Items{1: store.Item{ID: 1, UserID: 10, Name: "item_one"}}}
 		server := NewItemsServer(&store)
 		request := httptest.NewRequest(http.MethodPut, "/2", bytes.NewReader(jsonBytes))
 		request.Header.Set("content-type", JSONContentType)
@@ -297,7 +297,7 @@ func TestPUTItem(t *testing.T) {
 		payload := RequestPayload{Value: "item_one_updated"}
 		jsonBytes, _ := json.Marshal(payload)
 
-		store := StubStore{items: store.Items{"1": store.Item{ID: 1, UserID: 10, Name: "item_one"}, "2": store.Item{ID: 2, UserID: 11, Name: "item_two"}}}
+		store := StubStore{items: store.Items{1: store.Item{ID: 1, UserID: 10, Name: "item_one"}, 2: store.Item{ID: 2, UserID: 11, Name: "item_two"}}}
 		server := NewItemsServer(&store)
 		request := httptest.NewRequest(http.MethodPut, "/2", bytes.NewReader(jsonBytes))
 		request.Header.Set("content-type", JSONContentType)
@@ -312,12 +312,12 @@ func TestPUTItem(t *testing.T) {
 
 func TestDELETEItem(t *testing.T) {
 	t.Run("success on deletion", func(t *testing.T) {
-		stubStore := StubStore{items: store.Items{"1": store.Item{
+		stubStore := StubStore{items: store.Items{1: store.Item{
 			ID: 1, UserID: 10, Name: "item_one",
-		}, "2": store.Item{
+		}, 2: store.Item{
 			ID: 2, UserID: 12, Name: "item_two",
 		}}}
-		updatedStore := StubStore{items: store.Items{"2": store.Item{
+		updatedStore := StubStore{items: store.Items{2: store.Item{
 			ID: 2, UserID: 12, Name: "item_two",
 		}}}
 		server := NewItemsServer(&stubStore)
@@ -332,7 +332,7 @@ func TestDELETEItem(t *testing.T) {
 	})
 
 	t.Run("non-existent key", func(t *testing.T) {
-		store := StubStore{items: store.Items{"1": store.Item{
+		store := StubStore{items: store.Items{1: store.Item{
 			ID: 1, UserID: 10, Name: "item_one",
 		}}}
 		server := NewItemsServer(&store)
@@ -346,7 +346,7 @@ func TestDELETEItem(t *testing.T) {
 	})
 
 	t.Run("internal server error", func(t *testing.T) {
-		store := StubStore{items: store.Items{"1": store.Item{
+		store := StubStore{items: store.Items{1: store.Item{
 			ID: 1, UserID: 10, Name: "item_one",
 		}}, failure: true}
 		server := NewItemsServer(&store)
@@ -360,7 +360,7 @@ func TestDELETEItem(t *testing.T) {
 	})
 
 	t.Run("forbidden - useID does not match", func(t *testing.T) {
-		store := StubStore{items: store.Items{"1": store.Item{
+		store := StubStore{items: store.Items{1: store.Item{
 			ID: 1, UserID: 11, Name: "item_one",
 		}}}
 		server := NewItemsServer(&store)

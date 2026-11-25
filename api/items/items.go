@@ -7,7 +7,6 @@ import (
 	"io"
 	"mime"
 	"net/http"
-	"strings"
 
 	"github.com/habx47/gapi/store"
 )
@@ -60,8 +59,8 @@ func (s *ItemsServer) createItem(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *ItemsServer) getItem(w http.ResponseWriter, r *http.Request) {
-	key := strings.TrimPrefix(r.URL.Path, "/")
-	value, err := s.store.GetItem(key)
+	id := getItemID(r.Context())
+	value, err := s.store.GetItem(id)
 	if err != nil {
 		if errors.Is(err, store.ForbiddenErr) {
 			w.WriteHeader(http.StatusForbidden)
@@ -70,7 +69,7 @@ func (s *ItemsServer) getItem(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	item := store.Items{key: value}
+	item := store.Items{id: value}
 	w.Header().Set("content-type", JSONContentType)
 	json.NewEncoder(w).Encode(item)
 }
@@ -82,14 +81,14 @@ func (s *ItemsServer) updateItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	key := strings.TrimPrefix(r.URL.Path, "/")
 	payload, err := s.validatePayload(r.Body)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	session := getSession(r.Context())
-	updateErr := s.store.UpdateItem(key, payload.Value, session.UserID)
+	id := getItemID(r.Context())
+	updateErr := s.store.UpdateItem(id, payload.Value, session.UserID)
 	if updateErr != nil {
 		if errors.Is(updateErr, store.ForbiddenErr) {
 			w.WriteHeader(http.StatusForbidden)
@@ -102,9 +101,9 @@ func (s *ItemsServer) updateItem(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *ItemsServer) removeItem(w http.ResponseWriter, r *http.Request) {
-	key := strings.TrimPrefix(r.URL.Path, "/")
 	session := getSession(r.Context())
-	err := s.store.DeleteItem(key, session.UserID)
+	id := getItemID(r.Context())
+	err := s.store.DeleteItem(id, session.UserID)
 	if err != nil {
 		if errors.Is(err, store.ForbiddenErr) {
 			w.WriteHeader(http.StatusForbidden)
@@ -146,16 +145,21 @@ func getSession(ctx context.Context) store.Session {
 	return session
 }
 
+func getItemID(ctx context.Context) int {
+	id, _ := ctx.Value(itemID).(int)
+	return id
+}
+
 func NewItemsServer(store store.ItemsStore) *ItemsServer {
 	s := new(ItemsServer)
 	s.store = store
 
 	router := http.NewServeMux()
 	router.Handle("GET /", http.HandlerFunc(s.listItems))
-	router.Handle("GET /{id}", http.HandlerFunc(s.getItem))
+	router.Handle("GET /{id}", ItemIDMiddleware(http.HandlerFunc(s.getItem)))
 	router.Handle("POST /", http.HandlerFunc(s.createItem))
-	router.Handle("PUT /{id}", http.HandlerFunc(s.updateItem))
-	router.Handle("DELETE /{id}", http.HandlerFunc(s.removeItem))
+	router.Handle("PUT /{id}", ItemIDMiddleware(http.HandlerFunc(s.updateItem)))
+	router.Handle("DELETE /{id}", ItemIDMiddleware(http.HandlerFunc(s.removeItem)))
 
 	s.Handler = router
 
