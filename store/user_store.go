@@ -30,6 +30,11 @@ func (imu *IMUserStore) Create(u User) (User, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
 
+	storeInitialized := imu.checkStoreInitilaization()
+	if !storeInitialized {
+		return User{}, errors.New("required store[s] not initialized")
+	}
+
 	_, exists := imu.checkEmailExists(u.Email)
 	if exists {
 		return User{}, EmailExistsErr
@@ -52,6 +57,11 @@ func (imu *IMUserStore) GetByEmail(email string) (User, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
 
+	storeInitialized := imu.checkStoreInitilaization()
+	if !storeInitialized {
+		return User{}, errors.New("required store[s] not initialized")
+	}
+
 	id, exists := imu.checkEmailExists(email)
 	if !exists {
 		return User{}, UserNotFoundErr
@@ -69,4 +79,8 @@ func (imu *IMUserStore) GetByEmail(email string) (User, error) {
 func (imu *IMUserStore) checkEmailExists(email string) (int, bool) {
 	id, ok := imu.emailToID[email]
 	return id, ok
+}
+
+func (imu *IMUserStore) checkStoreInitilaization() bool {
+	return imu.store != nil && imu.emailToID != nil
 }

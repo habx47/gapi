@@ -36,6 +36,11 @@ func (ims *IMSessionStore) CreateSession(userID int, ttl time.Duration) (Session
 	ims.mu.Lock()
 	defer ims.mu.Unlock()
 
+	storeInitialized := ims.checkStoreInitilaization()
+	if !storeInitialized {
+		return Session{}, errors.New("store not initialized")
+	}
+
 	id := strconv.Itoa(ims.nextID)
 	session := Session{
 		ID:        id,
@@ -50,18 +55,37 @@ func (ims *IMSessionStore) CreateSession(userID int, ttl time.Duration) (Session
 }
 
 func (ims *IMSessionStore) GetSession(sessionID string) (Session, error) {
+	ims.mu.Lock()
+	defer ims.mu.Unlock()
+
+	storeInitialized := ims.checkStoreInitilaization()
+	if !storeInitialized {
+		return Session{}, errors.New("store not initialized")
+	}
+
 	session, ok := ims.store[sessionID]
 	if !ok {
 		return Session{}, SessionNotFoundErr
 	}
-
 	return session, nil
 }
 
 func (ims *IMSessionStore) DeleteSession(sessionID string) error {
+	ims.mu.Lock()
+	defer ims.mu.Unlock()
+
+	storeInitialized := ims.checkStoreInitilaization()
+	if !storeInitialized {
+		return errors.New("store not initialized")
+	}
+
 	if _, ok := ims.store[sessionID]; !ok {
 		return errors.New("could not delete. session not found")
 	}
 	delete(ims.store, sessionID)
 	return nil
+}
+
+func (ims *IMSessionStore) checkStoreInitilaization() bool {
+	return ims.store != nil
 }
