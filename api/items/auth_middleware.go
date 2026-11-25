@@ -8,9 +8,9 @@ import (
 	"github.com/habx47/gapi/store"
 )
 
-type contextKey string
+type sessionContextKey string
 
-const sessionKey contextKey = "session"
+const sessionKey sessionContextKey = "session"
 
 func AuthMiddleware(sessionStore store.SessionStore) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
