@@ -1,8 +1,8 @@
 package store
 
 import (
+	"crypto/rand"
 	"errors"
-	"strconv"
 	"sync"
 	"time"
 )
@@ -27,9 +27,8 @@ type SessionStore interface {
 }
 
 type IMSessionStore struct {
-	store  map[string]Session
-	nextID int
-	mu     sync.Mutex
+	store map[string]Session
+	mu    sync.Mutex
 }
 
 func (ims *IMSessionStore) CreateSession(userID int, ttl time.Duration) (Session, error) {
@@ -38,10 +37,10 @@ func (ims *IMSessionStore) CreateSession(userID int, ttl time.Duration) (Session
 
 	storeInitialized := ims.checkStoreInitilaization()
 	if !storeInitialized {
-		return Session{}, errors.New("store not initialized")
+		return Session{}, UninitializedStoreErr
 	}
 
-	id := strconv.Itoa(ims.nextID)
+	id := rand.Text()
 	session := Session{
 		ID:        id,
 		UserID:    userID,
@@ -49,7 +48,6 @@ func (ims *IMSessionStore) CreateSession(userID int, ttl time.Duration) (Session
 		ExpiresAt: time.Now().Add(ttl),
 	}
 	ims.store[id] = session
-	ims.nextID++
 
 	return session, nil
 }
@@ -60,7 +58,7 @@ func (ims *IMSessionStore) GetSession(sessionID string) (Session, error) {
 
 	storeInitialized := ims.checkStoreInitilaization()
 	if !storeInitialized {
-		return Session{}, errors.New("store not initialized")
+		return Session{}, UninitializedStoreErr
 	}
 
 	session, ok := ims.store[sessionID]
@@ -76,11 +74,11 @@ func (ims *IMSessionStore) DeleteSession(sessionID string) error {
 
 	storeInitialized := ims.checkStoreInitilaization()
 	if !storeInitialized {
-		return errors.New("store not initialized")
+		return UninitializedStoreErr
 	}
 
 	if _, ok := ims.store[sessionID]; !ok {
-		return errors.New("could not delete. session not found")
+		return SessionNotFoundErr
 	}
 	delete(ims.store, sessionID)
 	return nil
