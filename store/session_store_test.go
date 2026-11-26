@@ -9,7 +9,7 @@ import (
 func TestCreateSession(t *testing.T) {
 	t.Run("success on creating session", func(t *testing.T) {
 		stubStore := IMSessionStore{
-			store: map[string]Session{},
+			Store: map[string]Session{},
 		}
 		userID := 1
 		ttl := 24 * time.Hour
@@ -44,7 +44,7 @@ func TestGetSession(t *testing.T) {
 			ExpiresAt: time.Now().Add(5 * time.Minute),
 		}
 		stubStore := IMSessionStore{
-			store: map[string]Session{id: stubSession},
+			Store: map[string]Session{id: stubSession},
 		}
 
 		session, err := stubStore.GetSession(id)
@@ -75,7 +75,7 @@ func TestGetSession(t *testing.T) {
 			ExpiresAt: time.Now().Add(5 * time.Minute),
 		}
 		stubStore := IMSessionStore{
-			store: map[string]Session{id: stubSession},
+			Store: map[string]Session{id: stubSession},
 		}
 
 		_, err := stubStore.GetSession("different_id")

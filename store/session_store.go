@@ -27,7 +27,7 @@ type SessionStore interface {
 }
 
 type IMSessionStore struct {
-	store map[string]Session
+	Store map[string]Session
 	mu    sync.Mutex
 }
 
@@ -47,7 +47,7 @@ func (ims *IMSessionStore) CreateSession(userID int, ttl time.Duration) (Session
 		CreatedAt: time.Now(),
 		ExpiresAt: time.Now().Add(ttl),
 	}
-	ims.store[id] = session
+	ims.Store[id] = session
 
 	return session, nil
 }
@@ -61,7 +61,7 @@ func (ims *IMSessionStore) GetSession(sessionID string) (Session, error) {
 		return Session{}, UninitializedStoreErr
 	}
 
-	session, ok := ims.store[sessionID]
+	session, ok := ims.Store[sessionID]
 	if !ok {
 		return Session{}, SessionNotFoundErr
 	}
@@ -77,13 +77,13 @@ func (ims *IMSessionStore) DeleteSession(sessionID string) error {
 		return UninitializedStoreErr
 	}
 
-	if _, ok := ims.store[sessionID]; !ok {
+	if _, ok := ims.Store[sessionID]; !ok {
 		return SessionNotFoundErr
 	}
-	delete(ims.store, sessionID)
+	delete(ims.Store, sessionID)
 	return nil
 }
 
 func (ims *IMSessionStore) checkStoreInitilaization() bool {
-	return ims.store != nil
+	return ims.Store != nil
 }

@@ -9,8 +9,8 @@ import (
 func TestCreate(t *testing.T) {
 	t.Run("success on creating a user", func(t *testing.T) {
 		stubStore := IMUserStore{
-			store:     map[int]User{},
-			emailToID: map[string]int{},
+			Store:     map[int]User{},
+			EmailToID: map[string]int{},
 			nextID:    1,
 		}
 		stubUser := User{
@@ -43,8 +43,8 @@ func TestCreate(t *testing.T) {
 
 	t.Run("email already exists", func(t *testing.T) {
 		stubStore := IMUserStore{
-			store:     map[int]User{},
-			emailToID: map[string]int{"test@test.com": 23},
+			Store:     map[int]User{},
+			EmailToID: map[string]int{"test@test.com": 23},
 			nextID:    23,
 		}
 		stubUser := User{
@@ -69,8 +69,8 @@ func TestLogin(t *testing.T) {
 			ID:         1,
 		}
 		stubStore := IMUserStore{
-			store:     map[int]User{1: stubUser},
-			emailToID: map[string]int{"test@test.com": 1},
+			Store:     map[int]User{1: stubUser},
+			EmailToID: map[string]int{"test@test.com": 1},
 			nextID:    2,
 		}
 
@@ -89,8 +89,8 @@ func TestLogin(t *testing.T) {
 			ID:         1,
 		}
 		stubStore := IMUserStore{
-			store:     map[int]User{1: stubUser},
-			emailToID: map[string]int{"test@test.com": 1},
+			Store:     map[int]User{1: stubUser},
+			EmailToID: map[string]int{"test@test.com": 1},
 			nextID:    2,
 		}
 
@@ -109,8 +109,8 @@ func TestLogin(t *testing.T) {
 			ID:         1,
 		}
 		stubStore := IMUserStore{
-			store:     map[int]User{1: stubUser},
-			emailToID: map[string]int{"test@test.com": 1, "test2@test.com": 2},
+			Store:     map[int]User{1: stubUser},
+			EmailToID: map[string]int{"test@test.com": 1, "test2@test.com": 2},
 			nextID:    3,
 		}
 
