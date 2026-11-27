@@ -22,8 +22,8 @@ type UserStore interface {
 }
 
 type IMUserStore struct {
-	Store     map[int]User
-	EmailToID map[string]int
+	store     map[int]User
+	emailToID map[string]int
 	mu        sync.Mutex
 	nextID    int
 }
@@ -43,15 +43,15 @@ func (imu *IMUserStore) Create(u User) (User, error) {
 	}
 
 	u.ID = imu.nextID
-	imu.Store[imu.nextID] = u
-	imu.EmailToID[u.Email] = imu.nextID
+	imu.store[imu.nextID] = u
+	imu.emailToID[u.Email] = imu.nextID
 	imu.nextID++
 
 	return u, nil
 }
 
 func (imu *IMUserStore) getByID(id int) (User, bool) {
-	user, ok := imu.Store[id]
+	user, ok := imu.store[id]
 	return user, ok
 }
 
@@ -79,10 +79,19 @@ func (imu *IMUserStore) GetByEmail(email string) (User, error) {
 }
 
 func (imu *IMUserStore) checkEmailExists(email string) (int, bool) {
-	id, ok := imu.EmailToID[email]
+	id, ok := imu.emailToID[email]
 	return id, ok
 }
 
 func (imu *IMUserStore) checkStoreInitilaization() bool {
-	return imu.Store != nil && imu.EmailToID != nil
+	return imu.store != nil && imu.emailToID != nil
+}
+
+func NewIMUserStore() *IMUserStore {
+	s := new(IMUserStore)
+	s.store = map[int]User{}
+	s.emailToID = map[string]int{}
+	s.nextID = 1
+
+	return s
 }

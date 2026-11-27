@@ -10,18 +10,10 @@ import (
 )
 
 func main() {
-	userStore := store.IMUserStore{
-		Store:     map[int]store.User{},
-		EmailToID: map[string]int{},
-	}
-	itemStore := store.IMItemsStore{
-		Store: store.Items{},
-	}
-	sessionStore := store.IMSessionStore{
-		Store: map[string]store.Session{},
-	}
-
-	root := root.NewRootHandler(&userStore, &itemStore, &sessionStore)
+	userStore := store.NewIMUserStore()
+	itemStore := store.NewIMItemsStore()
+	sessionStore := store.NewIMSessionStore()
+	root := root.NewRootHandler(userStore, itemStore, sessionStore)
 
 	fmt.Println("started listening on port: 8080")
 	err := http.ListenAndServe(":8080", root)

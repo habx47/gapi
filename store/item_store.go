@@ -24,7 +24,7 @@ type ItemsStore interface {
 }
 
 type IMItemsStore struct {
-	Store  Items
+	store  Items
 	nextID int
 	mu     sync.Mutex
 }
@@ -38,7 +38,7 @@ func (imi *IMItemsStore) GetItems() (Items, error) {
 		return Items{}, errors.New("store not initialized")
 	}
 
-	return imi.Store, nil
+	return imi.store, nil
 }
 
 func (imi *IMItemsStore) InsertItems(value Item) error {
@@ -51,7 +51,7 @@ func (imi *IMItemsStore) InsertItems(value Item) error {
 	}
 
 	value.ID = imi.nextID
-	imi.Store[imi.nextID] = value
+	imi.store[imi.nextID] = value
 	imi.nextID++
 	return nil
 }
@@ -65,7 +65,7 @@ func (imi *IMItemsStore) GetItem(key int) (Item, error) {
 		return Item{}, errors.New("store not initialized")
 	}
 
-	item, ok := imi.Store[key]
+	item, ok := imi.store[key]
 	if !ok {
 		return Item{}, ForbiddenErr
 	}
@@ -84,7 +84,7 @@ func (imi *IMItemsStore) UpdateItem(key int, value string, userID int) error {
 
 	item.Name = value
 	imi.mu.Lock()
-	imi.Store[key] = item
+	imi.store[key] = item
 	imi.mu.Unlock()
 	return nil
 }
@@ -100,11 +100,19 @@ func (imi *IMItemsStore) DeleteItem(key int, userID int) error {
 	}
 
 	imi.mu.Lock()
-	delete(imi.Store, key)
+	delete(imi.store, key)
 	imi.mu.Unlock()
 	return nil
 }
 
 func (imi *IMItemsStore) checkStoreInitilaization() bool {
-	return imi.Store != nil
+	return imi.store != nil
+}
+
+func NewIMItemsStore() *IMItemsStore {
+	s := new(IMItemsStore)
+	s.store = Items{}
+	s.nextID = 1
+
+	return s
 }
