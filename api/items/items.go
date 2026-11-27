@@ -44,7 +44,11 @@ func (s *ItemsServer) createItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session := getSession(r.Context())
+	session, sessionExists := getSession(r.Context())
+	if !sessionExists {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
 
 	item := store.Item{
 		Name:   payload.Value,
@@ -59,7 +63,11 @@ func (s *ItemsServer) createItem(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *ItemsServer) getItem(w http.ResponseWriter, r *http.Request) {
-	id := getItemID(r.Context())
+	id, intIDExists := getItemID(r.Context())
+	if !intIDExists {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 	value, err := s.store.GetItem(id)
 	if err != nil {
 		if errors.Is(err, store.ForbiddenErr) {
@@ -86,8 +94,16 @@ func (s *ItemsServer) updateItem(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	session := getSession(r.Context())
-	id := getItemID(r.Context())
+	session, sessionExists := getSession(r.Context())
+	if !sessionExists {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
+	id, intIDExists := getItemID(r.Context())
+	if !intIDExists {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 	updateErr := s.store.UpdateItem(id, payload.Value, session.UserID)
 	if updateErr != nil {
 		if errors.Is(updateErr, store.ForbiddenErr) {
@@ -101,8 +117,16 @@ func (s *ItemsServer) updateItem(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *ItemsServer) removeItem(w http.ResponseWriter, r *http.Request) {
-	session := getSession(r.Context())
-	id := getItemID(r.Context())
+	session, sessionExists := getSession(r.Context())
+	if !sessionExists {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
+	id, intIDExists := getItemID(r.Context())
+	if !intIDExists {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 	err := s.store.DeleteItem(id, session.UserID)
 	if err != nil {
 		if errors.Is(err, store.ForbiddenErr) {
@@ -140,14 +164,14 @@ func (s *ItemsServer) validatePayload(body io.ReadCloser) (RequestPayload, error
 	return payload, nil
 }
 
-func getSession(ctx context.Context) store.Session {
-	session, _ := ctx.Value(sessionKey).(store.Session)
-	return session
+func getSession(ctx context.Context) (store.Session, bool) {
+	session, ok := ctx.Value(sessionKey).(store.Session)
+	return session, ok
 }
 
-func getItemID(ctx context.Context) int {
-	id, _ := ctx.Value(itemID).(int)
-	return id
+func getItemID(ctx context.Context) (int, bool) {
+	id, ok := ctx.Value(itemID).(int)
+	return id, ok
 }
 
 func NewItemsServer(store store.ItemsStore) *ItemsServer {
