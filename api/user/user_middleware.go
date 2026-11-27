@@ -32,6 +32,7 @@ func UserMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
+		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 		payload, err := validatePayload(r.Body)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
@@ -63,7 +64,7 @@ func validateContentType(header string) error {
 
 func validatePayload(r io.Reader) (RequestPayload, error) {
 	var payload RequestPayload
-	err := json.NewDecoder(r).Decode(&payload)
+	err := decodeJson(r, &payload)
 	if err != nil {
 		return RequestPayload{}, err
 	}
@@ -73,6 +74,22 @@ func validatePayload(r io.Reader) (RequestPayload, error) {
 	}
 
 	return payload, nil
+}
+
+func decodeJson(r io.Reader, dst any) error {
+	decoder := json.NewDecoder(r)
+
+	if err := decoder.Decode(dst); err != nil {
+		return err
+	}
+
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		if err == nil {
+			return errors.New("request body must contain only one json value")
+		}
+		return err
+	}
+	return nil
 }
 
 func normalizeEmail(payload *RequestPayload) error {
