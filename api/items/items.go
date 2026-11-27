@@ -38,6 +38,7 @@ func (s *ItemsServer) createItem(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnsupportedMediaType)
 		return
 	}
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	payload, err := s.validatePayload(r.Body)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -89,6 +90,7 @@ func (s *ItemsServer) updateItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	payload, err := s.validatePayload(r.Body)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -153,7 +155,7 @@ func (s *ItemsServer) validateContentType(header string) error {
 
 func (s *ItemsServer) validatePayload(body io.ReadCloser) (RequestPayload, error) {
 	var payload RequestPayload
-	err := json.NewDecoder(body).Decode(&payload)
+	err := decodeJson(body, &payload)
 	if err != nil {
 		return RequestPayload{}, err
 	}
@@ -162,6 +164,22 @@ func (s *ItemsServer) validatePayload(body io.ReadCloser) (RequestPayload, error
 		return RequestPayload{}, errors.New("json not as per required format: missing value key")
 	}
 	return payload, nil
+}
+
+func decodeJson(r io.Reader, dst any) error {
+	decoder := json.NewDecoder(r)
+
+	if err := decoder.Decode(dst); err != nil {
+		return err
+	}
+
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		if err == nil {
+			return errors.New("request body must contain only one json value")
+		}
+		return err
+	}
+	return nil
 }
 
 func getSession(ctx context.Context) (store.Session, bool) {
