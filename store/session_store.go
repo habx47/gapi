@@ -17,7 +17,7 @@ type Session struct {
 }
 
 func (s Session) IsExpired() bool {
-	return time.Now().After(s.ExpiresAt)
+	return !time.Now().Before(s.ExpiresAt)
 }
 
 type SessionStore interface {
@@ -40,12 +40,14 @@ func (ims *IMSessionStore) CreateSession(userID int, ttl time.Duration) (Session
 		return Session{}, UninitializedStoreErr
 	}
 
+	createdAt := time.Now()
+
 	id := rand.Text()
 	session := Session{
 		ID:        id,
 		UserID:    userID,
-		CreatedAt: time.Now(),
-		ExpiresAt: time.Now().Add(ttl),
+		CreatedAt: createdAt,
+		ExpiresAt: createdAt.Add(ttl),
 	}
 	ims.store[id] = session
 

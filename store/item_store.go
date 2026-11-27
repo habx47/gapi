@@ -2,6 +2,7 @@ package store
 
 import (
 	"errors"
+	"maps"
 	"sync"
 )
 
@@ -38,7 +39,10 @@ func (imi *IMItemsStore) GetItems() (Items, error) {
 		return Items{}, errors.New("store not initialized")
 	}
 
-	return imi.store, nil
+	items := make(Items, len(imi.store))
+	maps.Copy(items, (imi.store))
+
+	return items, nil
 }
 
 func (imi *IMItemsStore) InsertItems(value Item) error {
@@ -73,9 +77,17 @@ func (imi *IMItemsStore) GetItem(key int) (Item, error) {
 }
 
 func (imi *IMItemsStore) UpdateItem(key int, value string, userID int) error {
-	item, err := imi.GetItem(key)
-	if err != nil {
-		return err
+	imi.mu.Lock()
+	defer imi.mu.Unlock()
+
+	storeInitialization := imi.checkStoreInitilaization()
+	if !storeInitialization {
+		return errors.New("store not initialized")
+	}
+
+	item, ok := imi.store[key]
+	if !ok {
+		return ForbiddenErr
 	}
 
 	if userID != item.UserID {
@@ -83,25 +95,29 @@ func (imi *IMItemsStore) UpdateItem(key int, value string, userID int) error {
 	}
 
 	item.Name = value
-	imi.mu.Lock()
 	imi.store[key] = item
-	imi.mu.Unlock()
 	return nil
 }
 
 func (imi *IMItemsStore) DeleteItem(key int, userID int) error {
-	item, err := imi.GetItem(key)
-	if err != nil {
-		return err
+	imi.mu.Lock()
+	defer imi.mu.Unlock()
+
+	storeInitialization := imi.checkStoreInitilaization()
+	if !storeInitialization {
+		return errors.New("store not initialized")
+	}
+
+	item, ok := imi.store[key]
+	if !ok {
+		return ForbiddenErr
 	}
 
 	if userID != item.UserID {
 		return ForbiddenErr
 	}
 
-	imi.mu.Lock()
 	delete(imi.store, key)
-	imi.mu.Unlock()
 	return nil
 }
 
