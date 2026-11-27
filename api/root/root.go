@@ -14,13 +14,15 @@ type Root struct {
 
 func NewRootHandler(userStore store.UserStore, itemsStore store.ItemsStore, sessionStore store.SessionStore) *Root {
 	r := new(Root)
+	userServer := user.NewUserServer(userStore, sessionStore)
+	itemsServer := items.NewItemsServer(itemsStore)
 
 	router := http.NewServeMux()
-	router.Handle("/user", http.StripPrefix("/user", user.UserMiddleware(user.NewUserServer(userStore, sessionStore))))
-	router.Handle("/user/", http.StripPrefix("/user", user.UserMiddleware(user.NewUserServer(userStore, sessionStore))))
+	router.Handle("/user", http.StripPrefix("/user", user.UserMiddleware(userServer)))
+	router.Handle("/user/", http.StripPrefix("/user", user.UserMiddleware(userServer)))
 
-	router.Handle("/items", http.StripPrefix("/items", items.AuthMiddleware(sessionStore)(items.NewItemsServer(itemsStore))))
-	router.Handle("/items/", http.StripPrefix("/items", items.AuthMiddleware(sessionStore)(items.NewItemsServer(itemsStore))))
+	router.Handle("/items", http.StripPrefix("/items", items.AuthMiddleware(sessionStore)(itemsServer)))
+	router.Handle("/items/", http.StripPrefix("/items", items.AuthMiddleware(sessionStore)(itemsServer)))
 
 	r.Handler = router
 
